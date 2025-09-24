@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Up Section Styles
  * Description: Registers the Section Style custom post type.
- * Version: 0.1.0
+ * Version: 1.0.0
  * Author: NG1 / Up
  */
 

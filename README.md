@@ -1,10 +1,10 @@
 # Up Section Styles
 
-## Description
+WordPress plugin to create and export reusable style variations for sections and blocks. It registers a custom post type `Section Styles` and lets you infer styles from the editor content, then export them as JSON files under your active theme or merge defaults into `theme.json`.
 
-This plugin registers a custom post type `section_style` to define style presets and merges them into the active theme at runtime or exports them as style variation files.
+Author: GEHIN Nicolas — Repository: https://github.com/NicolasCaen/up-section-styles
 
-Styles can be inferred automatically from the content and exported to:
+## Features
 - `styles/sections/`
 - `styles/blocks/`
 - `styles/blocks/<type>/`
