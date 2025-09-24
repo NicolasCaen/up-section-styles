@@ -181,18 +181,43 @@ class Up_Section_Styles_Plugin_Restore {
             tags && tags.addEventListener("click", function(e){ var a=e.target.closest("a.up-ss-remove"); if(!a) return; e.preventDefault(); var span=a.closest("span.tag"); if(!span) return; var val=span.dataset.bt||""; span.remove(); removeTag(val); });
         });</script>';
 
+        // Insert H1–H4 + paragraph + buttons (neutral: no styles on group), replacing content
+        echo '<p><button type="button" class="button" id="up-ss-insert-typography">' . esc_html__( 'Insérer modèle (H1–H4 + Texte + Bouton)', 'up' ) . '</button></p>';
+        echo '<script>document.addEventListener("DOMContentLoaded",function(){
+            var btn=document.getElementById("up-ss-insert-typography"); if(!btn) return;
+            btn.addEventListener("click", function(e){ e.preventDefault();
+                if(!(window.wp && wp.blocks && wp.data && wp.data.dispatch)) { alert("Éditeur non disponible."); return; }
+                try {
+                    var h1 = wp.blocks.createBlock("core/heading", { level: 1, content: "Titre de section" });
+                    var h2 = wp.blocks.createBlock("core/heading", { level: 2, content: "Titre de section H2" });
+                    var h3 = wp.blocks.createBlock("core/heading", { level: 3, content: "Titre de section H3" });
+                    var h4 = wp.blocks.createBlock("core/heading", { level: 4, content: "Titre de section H4" });
+                    var paragraph = wp.blocks.createBlock("core/paragraph", { content: "Un paragraphe avec un <a href=\\"/page-d-exemple/\\">lien</a>." });
+                    var button = wp.blocks.createBlock("core/button", { text: "En savoir plus", url: "#" });
+                    var buttons = wp.blocks.createBlock("core/buttons", {}, [ button ]);
+                    var group = wp.blocks.createBlock("core/group", {}, [ h1, h2, h3, h4, paragraph, buttons ]);
+                    wp.data.dispatch("core/editor").resetBlocks([ group ]);
+                } catch(err) {
+                    console.error(err);
+                    alert("Impossible d\'insérer le modèle.");
+                }
+            });
+        });</script>';
+
         echo '<p class="description">' . esc_html__( 'Les styles seront déduits automatiquement à partir des blocs du contenu.', 'up' ) . '</p>';
         // Toggle UI by export target
         echo '<script>document.addEventListener("DOMContentLoaded",function(){
             var target=document.getElementById("up-ss-export-target");
+            var extract=document.getElementById("up-ss-extract-mode");
             var sWrap=document.getElementById("up-ss-single-block-wrap");
             var mWrap=document.getElementById("up-ss-multiple-blocks-wrap");
             function sync(){
-                var v=target.value;
-                sWrap.style.display = (v==="block_type"||v==="theme_json")?"":"none";
+                var v=target.value; var em=extract.value;
+                var showSingle = (v==="block_type") || (v==="theme_json" && em!=="section");
+                sWrap.style.display = showSingle?"":"none";
                 mWrap.style.display = (v==="blocks")?"":"none";
             }
-            target.addEventListener("change",sync); sync();
+            target.addEventListener("change",sync); extract.addEventListener("change",sync); sync();
         });</script>';
 
         echo '<hr/>';
@@ -265,6 +290,7 @@ class Up_Section_Styles_Plugin_Restore {
         $single_block = $this->normalize_block_type( $single_block );
         $extract_mode = get_post_meta( $post_id, self::META_EXTRACT_MODE, true );
         if ( ! in_array( $extract_mode, [ 'section', 'block' ], true ) ) { $extract_mode = 'section'; }
+        $debug = (bool) get_post_meta( $post_id, self::META_DEBUG, true );
         // Load selected blocktypes early (for multiples)
         $blocktypes = get_post_meta( $post_id, self::META_BLOCKTYPES, true );
         if ( ! is_array( $blocktypes ) || empty( $blocktypes ) ) { $blocktypes = [ 'core/group', 'core/columns', 'core/column', 'core/cover' ]; }
@@ -273,21 +299,32 @@ class Up_Section_Styles_Plugin_Restore {
         $is_single = ( $export_target === 'block_type' || $export_target === 'theme_json' );
         $target_block = $is_single ? $single_block : '';
 
+        // Debug: announce start
+        if ( $debug ) {
+            $meta_preview = [
+                'target' => $export_target,
+                'extract' => $extract_mode,
+                'is_single' => $is_single,
+                'single_block' => $target_block,
+            ];
+            set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'success', 'msg' => sprintf( __( 'Export démarré. Meta: %s', 'up' ), wp_json_encode( $meta_preview, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) ) ], 30 );
+        }
+
         // build styles
         $decoded = null;
         if ( $is_single ) {
-            if ( empty( $target_block ) ) {
-                set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'error', 'msg' => __( 'Sélectionnez un type de block pour l\'export "Block spécifique".', 'up' ) ], 30 );
-                return;
-            }
-            if ( ! $this->is_block_type_registered( $target_block ) ) {
-                set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'error', 'msg' => sprintf( __( 'Type de block inconnu: %s', 'up' ), esc_html( $single_block ) ) ], 30 );
-                return;
-            }
             if ( $extract_mode === 'block' ) {
+                if ( empty( $target_block ) ) {
+                    set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'error', 'msg' => __( 'Sélectionnez un type de block pour l\'export "Block spécifique".', 'up' ) ], 30 );
+                    return;
+                }
+                if ( ! $this->is_block_type_registered( $target_block ) ) {
+                    set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'error', 'msg' => sprintf( __( 'Type de block inconnu: %s', 'up' ), esc_html( $single_block ) ) ], 30 );
+                    return;
+                }
                 $decoded = [ 'styles' => $this->infer_styles_for_single_block( $post_id, $target_block ) ];
             } else {
-                // Section extraction: use section-level inference
+                // Section extraction (theme_json + section): do not require target_block
                 $decoded = [ 'styles' => $this->infer_styles_for_section( $post_id ) ];
             }
         } else {
@@ -308,36 +345,92 @@ class Up_Section_Styles_Plugin_Restore {
                 $decoded = [ 'styles' => $merged ];
             }
         }
-        if ( empty( $decoded ) || ! is_array( $decoded ) ) return;
+        if ( empty( $decoded ) || ! is_array( $decoded ) ) {
+            set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'error', 'msg' => __( 'Aucun style détecté à exporter.', 'up' ) ], 30 );
+            return;
+        }
 
         $slug = sanitize_title( get_post_field( 'post_name', $post_id ) ?: get_the_title( $post_id ) );
         if ( '' === $slug ) { $slug = 'section-style-' . $post_id; }
 
         if ( $export_target === 'theme_json' ) {
-            // use forced single logic
-            if ( ! $target_block ) {
-                set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'error', 'msg' => __( 'Pour écrire dans theme.json, sélectionnez le mode "Un seul type de block" et renseignez le type.', 'up' ) ], 30 );
-                return;
-            }
-            if ( $extract_mode !== 'block' ) {
-                set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'error', 'msg' => __( 'Pour écrire dans theme.json, utilisez le mode d\'extraction "Block".', 'up' ) ], 30 );
-                return;
-            }
-            $styles_to_write = isset( $decoded['styles'] ) ? $decoded['styles'] : [];
-            $styles_to_write = $this->normalize_styles_for_single_block( $target_block, $styles_to_write );
-            $ok = $this->write_to_theme_json_block_defaults( $target_block, $styles_to_write );
-            if ( ! $ok ) {
-                set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'error', 'msg' => __( 'Échec de la mise à jour de theme.json.', 'up' ) ], 30 );
-            } else {
-                $debug = (bool) get_post_meta( $post_id, self::META_DEBUG, true );
-                if ( $debug ) {
-                    $preview = wp_json_encode( [ 'block' => $target_block, 'styles_keys' => array_keys( $styles_to_write ) ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
-                    set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'success', 'msg' => sprintf( __( 'theme.json mis à jour pour "%s". Aperçu: %s', 'up' ), esc_html( $target_block ), $preview ) ], 30 );
-                } else {
-                    set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'success', 'msg' => __( 'theme.json mis à jour pour le type de block.', 'up' ) ], 30 );
+            if ( $extract_mode === 'block' ) {
+                // Single block defaults under styles.blocks[<type>]
+                if ( ! $target_block ) {
+                    set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'error', 'msg' => __( 'Pour écrire dans theme.json, sélectionnez le mode "Un seul type de block" et renseignez le type.', 'up' ) ], 30 );
+                    return;
                 }
+                $styles_to_write = isset( $decoded['styles'] ) ? $decoded['styles'] : [];
+                $styles_to_write = $this->normalize_styles_for_single_block( $target_block, $styles_to_write );
+                $ok = $this->write_to_theme_json_block_defaults( $target_block, $styles_to_write );
+                if ( ! $ok ) {
+                    set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'error', 'msg' => __( 'Échec de la mise à jour de theme.json.', 'up' ) ], 30 );
+                } else {
+                    $debug = (bool) get_post_meta( $post_id, self::META_DEBUG, true );
+                    if ( $debug ) {
+                        $preview = wp_json_encode( [ 'block' => $target_block, 'styles_keys' => array_keys( $styles_to_write ) ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+                        set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'success', 'msg' => sprintf( __( 'theme.json mis à jour pour "%s". Aperçu: %s', 'up' ), esc_html( $target_block ), $preview ) ], 30 );
+                    } else {
+                        set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'success', 'msg' => __( 'theme.json mis à jour pour le type de block.', 'up' ) ], 30 );
+                    }
+                }
+                return;
+            } else {
+                // Section extraction → write root styles to styles.*, and inner blocks to styles.blocks
+                $root_styles = isset( $decoded['styles'] ) && is_array( $decoded['styles'] ) ? $decoded['styles'] : [];
+                // Collect per-block styles from inner blocks (only under the root group)
+                $content = get_post_field( 'post_content', $post_id );
+                $tree = function_exists( 'parse_blocks' ) ? parse_blocks( $content ) : [];
+                $root = isset( $tree[0] ) ? $tree[0] : null;
+                if ( is_array( $root ) && isset( $root['blockName'] ) && $root['blockName'] !== 'core/group' ) {
+                    foreach ( $tree as $b ) { if ( isset( $b['blockName'] ) && $b['blockName'] === 'core/group' ) { $root = $b; break; } }
+                }
+                $per_block = [];
+                $collect = function( $nodes ) use ( &$collect, &$per_block ) {
+                    foreach ( $nodes as $b ) {
+                        if ( ! is_array( $b ) || empty( $b['blockName'] ) ) continue;
+                        $name = $b['blockName'];
+                        // Skip writing defaults for core/group from section mode; those belong to root styles
+                        if ( $name === 'core/group' ) {
+                            if ( ! empty( $b['innerBlocks'] ) ) { $collect( $b['innerBlocks'] ); }
+                            continue;
+                        }
+                        if ( ! isset( $per_block[ $name ] ) ) { $per_block[ $name ] = true; }
+                        if ( ! empty( $b['innerBlocks'] ) ) { $collect( $b['innerBlocks'] ); }
+                    }
+                };
+                $inner = ( is_array( $root ) && isset( $root['innerBlocks'] ) ) ? $root['innerBlocks'] : [];
+                $collect( $inner );
+                // Now actually infer styles per discovered block once, using post-level walker
+                foreach ( array_keys( $per_block ) as $bn ) {
+                    $st = $this->infer_styles_for_single_block( $post_id, $bn );
+                    if ( is_array( $st ) && ! empty( $st ) ) {
+                        // Never persist 'elements' at block level in section->theme export
+                        if ( isset( $st['elements'] ) ) { unset( $st['elements'] ); }
+                        // If nothing remains after stripping, skip
+                        if ( empty( $st ) ) { unset( $per_block[ $bn ] ); continue; }
+                        $per_block[ $bn ] = $st;
+                    } else { unset( $per_block[ $bn ] ); }
+                }
+                // If nothing to write, inform and stop early
+                if ( empty( $root_styles ) && empty( $per_block ) ) {
+                    set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'warning', 'msg' => __( 'Aucun style de section ni de sous-bloc détecté pour theme.json.', 'up' ) ], 30 );
+                    return;
+                }
+                $ok = $this->write_to_theme_json_section_defaults( $root_styles, $per_block );
+                if ( ! $ok ) {
+                    set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'error', 'msg' => __( 'Échec de la mise à jour de theme.json (section).', 'up' ) ], 30 );
+                } else {
+                    $debug = (bool) get_post_meta( $post_id, self::META_DEBUG, true );
+                    if ( $debug ) {
+                        $preview = wp_json_encode( [ 'styles_keys' => array_keys( $root_styles ), 'blocks' => array_keys( $per_block ) ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+                        set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'success', 'msg' => sprintf( __( 'theme.json (section) mis à jour. Aperçu: %s', 'up' ), $preview ) ], 30 );
+                    } else {
+                        set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'success', 'msg' => __( 'theme.json mis à jour (section).', 'up' ) ], 30 );
+                    }
+                }
+                return;
             }
-            return;
         }
 
         // write variation file
@@ -596,6 +689,46 @@ class Up_Section_Styles_Plugin_Restore {
         return false !== @file_put_contents( $file, $out );
     }
 
+    private function write_to_theme_json_section_defaults( $root_styles, $per_block_styles ) {
+        $theme_dir = get_stylesheet_directory();
+        $file = trailingslashit( $theme_dir ) . 'theme.json';
+        if ( ! file_exists( $file ) ) return false;
+        $raw = file_get_contents( $file );
+        if ( $raw === false ) return false;
+        $json = json_decode( $raw, true );
+        if ( ! is_array( $json ) ) return false;
+        if ( ! isset( $json['styles'] ) || ! is_array( $json['styles'] ) ) $json['styles'] = [];
+        // Deep merge root styles (new values override existing ones)
+        $json['styles'] = $this->deep_merge_overlay( $json['styles'], is_array( $root_styles ) ? $root_styles : [] );
+        // Merge per-block styles
+        if ( ! isset( $json['styles']['blocks'] ) || ! is_array( $json['styles']['blocks'] ) ) $json['styles']['blocks'] = [];
+        if ( is_array( $per_block_styles ) ) {
+            foreach ( $per_block_styles as $bn => $st ) {
+                if ( ! isset( $json['styles']['blocks'][ $bn ] ) || ! is_array( $json['styles']['blocks'][ $bn ] ) ) $json['styles']['blocks'][ $bn ] = [];
+                $json['styles']['blocks'][ $bn ] = $this->deep_merge_overlay( $json['styles']['blocks'][ $bn ], $st );
+            }
+        }
+        $out = wp_json_encode( $json, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT );
+        return false !== @file_put_contents( $file, $out );
+    }
+
+    private function deep_merge_overlay( $base, $overlay ) {
+        if ( ! is_array( $base ) ) $base = [];
+        if ( ! is_array( $overlay ) ) return $base;
+        foreach ( $overlay as $k => $v ) {
+            if ( array_key_exists( $k, $base ) ) {
+                if ( is_array( $base[$k] ) && is_array( $v ) ) {
+                    $base[$k] = $this->deep_merge_overlay( $base[$k], $v );
+                } else {
+                    $base[$k] = $v; // overlay wins
+                }
+            } else {
+                $base[$k] = $v;
+            }
+        }
+        return $base;
+    }
+
     private function merge_styles_preferring_first( $a, $b ) {
         if ( ! is_array( $a ) ) $a = [];
         if ( ! is_array( $b ) ) return $a;
@@ -656,9 +789,11 @@ class Up_Section_Styles_Plugin_Restore {
                     $styles['elements']['button']['color']['background'] = $this->normalize_color_value( $els['button']['color']['background'] );
                 }
             }
-            // h2 color
-            if ( isset( $els['h2']['color']['text'] ) ) {
-                $styles['elements']['h2']['color']['text'] = $this->normalize_color_value( $els['h2']['color']['text'] );
+            // headings h1..h6 colors
+            foreach ( [ 'h1','h2','h3','h4','h5','h6' ] as $hx ) {
+                if ( isset( $els[ $hx ]['color']['text'] ) ) {
+                    $styles['elements'][ $hx ]['color']['text'] = $this->normalize_color_value( $els[ $hx ]['color']['text'] );
+                }
             }
         }
         // Border (style/color/width/radius)
