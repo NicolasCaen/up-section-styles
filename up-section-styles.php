@@ -1,343 +1,152 @@
 <?php
 /**
  * Plugin Name: Up Section Styles
- * Description: Register a custom post type to define section style presets and merge them into theme.json at runtime with an editor live preview.
- * Author: GEHIN NICOLAS
+ * Description: Registers the Section Style custom post type.
  * Version: 0.1.0
- * Requires at least: 6.5
- * Requires PHP: 7.4
+ * Author: NG1 / Up
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-class Up_Section_Styles_Plugin {
+add_action( 'init', function () {
+    $labels = [
+        'name'               => __( 'Section Styles', 'up' ),
+        'singular_name'      => __( 'Section Style', 'up' ),
+        'menu_name'          => __( 'Section Styles', 'up' ),
+        'name_admin_bar'     => __( 'Section Style', 'up' ),
+        'add_new'            => __( 'Add New', 'up' ),
+        'add_new_item'       => __( 'Add New Section Style', 'up' ),
+        'new_item'           => __( 'New Section Style', 'up' ),
+        'edit_item'          => __( 'Edit Section Style', 'up' ),
+        'view_item'          => __( 'View Section Style', 'up' ),
+        'all_items'          => __( 'All Section Styles', 'up' ),
+        'search_items'       => __( 'Search Section Styles', 'up' ),
+        'parent_item_colon'  => __( 'Parent Section Styles:', 'up' ),
+        'not_found'          => __( 'No Section Styles found.', 'up' ),
+        'not_found_in_trash' => __( 'No Section Styles found in Trash.', 'up' ),
+    ];
+
+    register_post_type( 'section_style', [
+        'labels'             => $labels,
+        'public'             => false,
+        'show_ui'            => true,
+        'show_in_menu'       => true,
+        'menu_position'      => 22,
+        'menu_icon'          => 'dashicons-art',
+        'supports'           => [ 'title', 'editor' ],
+        'has_archive'        => false,
+        'rewrite'            => false,
+        'show_in_rest'       => true,
+        'capability_type'    => 'post',
+    ] );
+} );
+
+// Full features
+class Up_Section_Styles_Plugin_Restore {
     const CPT = 'section_style';
     const META_EXPORT = '_up_section_style_export';
     const META_BLOCKTYPES = '_up_section_style_blocktypes';
+    const META_BLOCK_MODE = '_up_section_style_block_mode'; // 'multiple' | 'single'
+    const META_SINGLE_BLOCK = '_up_section_style_single_block'; // e.g. 'core/paragraph'
+    const META_EXPORT_TARGET = '_up_section_style_export_target'; // 'sections' | 'blocks' | 'block_type' | 'theme_json'
+    const META_DEBUG = '_up_section_style_debug'; // boolean
 
     public function __construct() {
-        add_action( 'init', [ $this, 'register_cpt' ] );
         add_action( 'init', [ $this, 'register_meta' ] );
-        // Disable Gutenberg sidebar UI in favor of classic metabox per user preference
-        // add_action( 'enqueue_block_editor_assets', [ $this, 'enqueue_editor_assets' ] );
-        add_filter( 'wp_theme_json_data_theme', [ $this, 'filter_theme_json_data' ] );
-        add_action( 'rest_api_init', [ $this, 'register_rest_routes' ] );
         add_action( 'add_meta_boxes', [ $this, 'add_meta_boxes' ] );
-        // Save metas first
         add_action( 'save_post_' . self::CPT, [ $this, 'save_meta_box' ], 10, 3 );
-        // Then write file after metas are persisted
         add_action( 'save_post_' . self::CPT, [ $this, 'maybe_write_style_file' ], 20, 3 );
-        add_action( 'admin_notices', [ $this, 'maybe_render_admin_notice' ] );
-    }
-
-    private function infer_styles_from_content( $post_id ) {
-        $content = get_post_field( 'post_content', $post_id );
-        if ( ! $content ) return [];
-
-        $blocks = parse_blocks( $content );
-        if ( ! is_array( $blocks ) ) return [];
-
-        $result = [ 'styles' => [] ];
-
-        $acc = [
-            'background' => null,
-            'text' => null,
-            'heading_text' => null,
-            'button_bg' => null,
-            'button_text' => null,
-            'link_text' => null,
-            'elements' => [], // collect element-level styles e.g. link/button/h2
-        ];
-
-        $walker = function( $b, &$acc ) use ( &$walker ) {
-            foreach ( $b as $block ) {
-                if ( empty( $block['blockName'] ) ) {
-                    if ( ! empty( $block['innerBlocks'] ) ) {
-                        $walker( $block['innerBlocks'], $acc );
-                    }
-                    continue;
-                }
-                $name = $block['blockName'];
-                $attrs = isset( $block['attrs'] ) ? $block['attrs'] : [];
-
-                // Group / Cover background & text
-                if ( in_array( $name, [ 'core/group', 'core/cover' ], true ) ) {
-                    $bg = $this->resolve_color_from_attrs( $attrs, 'background' );
-                    if ( ! $acc['background'] && $bg ) $acc['background'] = $bg;
-                    $txt = $this->resolve_color_from_attrs( $attrs, 'text' );
-                    if ( ! $acc['text'] && $txt ) $acc['text'] = $txt;
-                }
-
-                // Heading text color
-                if ( $name === 'core/heading' ) {
-                    $h = $this->resolve_color_from_attrs( $attrs, 'text' );
-                    if ( ! $acc['heading_text'] && $h ) $acc['heading_text'] = $h;
-                }
-
-                // Button colors
-                if ( $name === 'core/button' ) {
-                    $bbg = $this->resolve_color_from_attrs( $attrs, 'background' );
-                    if ( ! $acc['button_bg'] && $bbg ) $acc['button_bg'] = $bbg;
-                    $btx = $this->resolve_color_from_attrs( $attrs, 'text' );
-                    if ( ! $acc['button_text'] && $btx ) $acc['button_text'] = $btx;
-                }
-
-                // Element-level styles defined on the block (e.g., group has style.elements)
-                if ( isset( $attrs['style']['elements'] ) && is_array( $attrs['style']['elements'] ) ) {
-                    $els = $attrs['style']['elements'];
-                    $element_keys = [ 'link', 'button', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' ];
-                    foreach ( $element_keys as $ek ) {
-                        if ( isset( $els[ $ek ]['color'] ) && is_array( $els[ $ek ]['color'] ) ) {
-                            $c = $els[ $ek ]['color'];
-                            if ( isset( $c['text'] ) ) {
-                                $val = $this->normalize_color_value( $c['text'] );
-                                if ( $val ) {
-                                    $acc['elements'][ $ek ]['color']['text'] = $val;
-                                }
-                            }
-                            if ( isset( $c['background'] ) ) {
-                                $val = $this->normalize_color_value( $c['background'] );
-                                if ( $val ) {
-                                    $acc['elements'][ $ek ]['color']['background'] = $val;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Recurse
-                if ( ! empty( $block['innerBlocks'] ) ) {
-                    $walker( $block['innerBlocks'], $acc );
-                }
-            }
-        };
-
-        $walker( $blocks, $acc );
-
-        // Build styles object
-        $styles = [];
-        if ( $acc['background'] || $acc['text'] ) {
-            $styles['color'] = [];
-            if ( $acc['background'] ) $styles['color']['background'] = $acc['background'];
-            if ( $acc['text'] ) $styles['color']['text'] = $acc['text'];
-        }
-
-        if ( $acc['button_bg'] || $acc['button_text'] ) {
-            $styles['blocks']['core/button']['color'] = [];
-            if ( $acc['button_bg'] ) $styles['blocks']['core/button']['color']['background'] = $acc['button_bg'];
-            if ( $acc['button_text'] ) $styles['blocks']['core/button']['color']['text'] = $acc['button_text'];
-        }
-
-        if ( $acc['heading_text'] ) {
-            $styles['elements']['heading']['color']['text'] = $acc['heading_text'];
-        }
-
-        // Merge element-level discoveries (link, button, h2, ...)
-        if ( ! empty( $acc['elements'] ) ) {
-            foreach ( $acc['elements'] as $ek => $edata ) {
-                if ( ! empty( $edata['color'] ) ) {
-                    if ( isset( $edata['color']['text'] ) ) {
-                        $styles['elements'][ $ek ]['color']['text'] = $edata['color']['text'];
-                    }
-                    if ( isset( $edata['color']['background'] ) ) {
-                        $styles['elements'][ $ek ]['color']['background'] = $edata['color']['background'];
-                    }
-                }
-            }
-        }
-
-        // Provide sensible defaults for link if not found explicitly
-        if ( ! isset( $styles['elements']['link']['color']['text'] ) && $acc['button_text'] ) {
-            $styles['elements']['link']['color']['text'] = $acc['button_text'];
-        }
-        $styles['elements']['link']['typography']['textDecoration'] = 'none';
-
-        return [ 'styles' => $styles ];
-    }
-
-    private function resolve_color_from_attrs( $attrs, $type ) {
-        // $type = 'background'|'text'
-        $style_path = isset( $attrs['style']['color'] ) ? $attrs['style']['color'] : [];
-        $presetSlug = null;
-        if ( $type === 'background' ) {
-            $presetSlug = isset( $attrs['backgroundColor'] ) ? $attrs['backgroundColor'] : ( isset( $attrs['overlayColor'] ) ? $attrs['overlayColor'] : null );
-            $direct = isset( $style_path['background'] ) ? $style_path['background'] : null;
-        } else {
-            $presetSlug = isset( $attrs['textColor'] ) ? $attrs['textColor'] : null;
-            $direct = isset( $style_path['text'] ) ? $style_path['text'] : null;
-        }
-
-        if ( $presetSlug ) {
-            return 'var(--wp--preset--color--' . sanitize_title( $presetSlug ) . ')';
-        }
-        if ( is_string( $direct ) && $direct !== '' ) {
-            return $direct; // Could be hex or var()
-        }
-        return null;
-    }
-
-    private function normalize_color_value( $val ) {
-        if ( ! is_string( $val ) || $val === '' ) return null;
-        // Convert var:preset|color|slug to CSS var
-        if ( strpos( $val, 'var:preset|color|' ) === 0 ) {
-            $slug = substr( $val, strlen( 'var:preset|color|' ) );
-            $slug = sanitize_title( $slug );
-            return 'var(--wp--preset--color--' . $slug . ')';
-        }
-        return $val;
-    }
-
-    public function register_cpt() {
-        $labels = [
-            'name' => __( 'Section Styles', 'up' ),
-            'singular_name' => __( 'Section Style', 'up' ),
-            'add_new' => __( 'Add New', 'up' ),
-            'add_new_item' => __( 'Add New Section Style', 'up' ),
-            'edit_item' => __( 'Edit Section Style', 'up' ),
-            'new_item' => __( 'New Section Style', 'up' ),
-            'view_item' => __( 'View Section Style', 'up' ),
-            'search_items' => __( 'Search Section Styles', 'up' ),
-            'not_found' => __( 'No Section Styles found', 'up' ),
-            'not_found_in_trash' => __( 'No Section Styles found in Trash', 'up' ),
-        ];
-
-        $args = [
-            'labels' => $labels,
-            'public' => false,
-            'show_ui' => true,
-            'show_in_menu' => true,
-            'show_in_rest' => true,
-            'menu_icon' => 'dashicons-art',
-            'supports' => [ 'title', 'editor' ],
-            'has_archive' => false,
-        ];
-
-        register_post_type( self::CPT, $args );
+        add_action( 'admin_notices', [ $this, 'admin_notice' ] );
     }
 
     public function register_meta() {
-        register_post_meta( self::CPT, self::META_EXPORT, [
-            'type' => 'boolean',
-            'single' => true,
-            'show_in_rest' => true,
-            'auth_callback' => function() { return current_user_can( 'edit_posts' ); },
-            'default' => false,
-        ] );
-
-        register_post_meta( self::CPT, self::META_BLOCKTYPES, [
-            'type' => 'array',
-            'single' => true,
-            'show_in_rest' => [
-                'schema' => [
-                    'type'  => 'array',
-                    'items' => [ 'type' => 'string' ],
-                ],
-            ],
-            'auth_callback' => function() { return current_user_can( 'edit_posts' ); },
-            'default' => [ 'core/group', 'core/columns', 'core/column', 'core/cover' ],
-        ] );
-    }
-
-    // Removed Gutenberg sidebar assets; metabox-only flow
-
-    public function filter_theme_json_data( $theme_json ) {
-        if ( ! $theme_json instanceof WP_Theme_JSON ) {
-            return $theme_json;
-        }
-
-        $styles = $this->collect_styles_from_posts();
-        if ( empty( $styles ) ) {
-            return $theme_json;
-        }
-
-        // Merge each style object into theme.json data.
-        $data = $theme_json->get_data();
-
-        foreach ( $styles as $style_obj ) {
-            if ( isset( $style_obj['styles'] ) && is_array( $style_obj['styles'] ) ) {
-                $data['styles'] = isset( $data['styles'] ) && is_array( $data['styles'] )
-                    ? $this->deep_merge( $data['styles'], $style_obj['styles'] )
-                    : $style_obj['styles'];
-            }
-
-            if ( isset( $style_obj['blockTypes'] ) && is_array( $style_obj['blockTypes'] ) ) {
-                // Optional: Could use this to scope styles by block in the future.
-            }
-        }
-
-        return new WP_Theme_JSON( $data, 'theme' );
-    }
-
-    private function collect_styles_from_posts() {
-        $query = new WP_Query([
-            'post_type' => self::CPT,
-            'post_status' => 'publish',
-            'posts_per_page' => -1,
-            'fields' => 'ids',
-        ]);
-
-        $all = [];
-        foreach ( $query->posts as $post_id ) {
-            $inferred = $this->infer_styles_from_content( $post_id );
-            if ( ! empty( $inferred ) && is_array( $inferred ) ) {
-                $all[] = $inferred;
-            }
-        }
-        return $all;
-    }
-
-    private function deep_merge( $base, $extra ) {
-        foreach ( $extra as $key => $value ) {
-            if ( isset( $base[ $key ] ) && is_array( $base[ $key ] ) && is_array( $value ) ) {
-                $base[ $key ] = $this->deep_merge( $base[ $key ], $value );
-            } else {
-                $base[ $key ] = $value;
-            }
-        }
-        return $base;
-    }
-
-    // Removed example JSON helper; inference is used instead
-
-    public function register_rest_routes() {
-        register_rest_route( 'up-section-styles/v1', '/export', [
-            'methods' => 'GET',
-            'permission_callback' => function() {
-                return current_user_can( 'edit_posts' );
-            },
-            'callback' => function( WP_REST_Request $req ) {
-                $styles = $this->collect_styles_from_posts();
-                return rest_ensure_response( $styles );
-            }
-        ] );
+        register_post_meta( self::CPT, self::META_EXPORT, [ 'type' => 'boolean', 'single' => true, 'show_in_rest' => true, 'default' => false ] );
+        register_post_meta( self::CPT, self::META_BLOCKTYPES, [ 'type' => 'array', 'single' => true, 'show_in_rest' => true, 'default' => [ 'core/group', 'core/columns', 'core/column', 'core/cover' ] ] );
+        register_post_meta( self::CPT, self::META_BLOCK_MODE, [ 'type' => 'string', 'single' => true, 'show_in_rest' => true, 'default' => 'multiple' ] );
+        register_post_meta( self::CPT, self::META_SINGLE_BLOCK, [ 'type' => 'string', 'single' => true, 'show_in_rest' => true, 'default' => '' ] );
+        register_post_meta( self::CPT, self::META_EXPORT_TARGET, [ 'type' => 'string', 'single' => true, 'show_in_rest' => true, 'default' => 'sections' ] );
+        register_post_meta( self::CPT, self::META_DEBUG, [ 'type' => 'boolean', 'single' => true, 'show_in_rest' => true, 'default' => false ] );
     }
 
     public function add_meta_boxes() {
-        add_meta_box(
-            'up_section_styles_box',
-            __( 'Section Style Options', 'up' ),
-            [ $this, 'render_meta_box' ],
-            self::CPT,
-            'side',
-            'default'
-        );
+        add_meta_box( 'up_section_styles_box', __( 'Export de style', 'up' ), [ $this, 'render_meta_box' ], self::CPT, 'side', 'default' );
     }
 
     public function render_meta_box( $post ) {
         wp_nonce_field( 'up_ss_save', 'up_ss_nonce' );
         $export = (bool) get_post_meta( $post->ID, self::META_EXPORT, true );
-        $blocktypes = get_post_meta( $post->ID, self::META_BLOCKTYPES, true );
-        if ( ! is_array( $blocktypes ) || empty( $blocktypes ) ) {
-            $blocktypes = [ 'core/group', 'core/columns', 'core/column', 'core/cover' ];
+        $block_mode = get_post_meta( $post->ID, self::META_BLOCK_MODE, true );
+        if ( ! in_array( $block_mode, [ 'single', 'multiple' ], true ) ) { $block_mode = 'multiple'; }
+        $single_block = (string) get_post_meta( $post->ID, self::META_SINGLE_BLOCK, true );
+        $single_block_norm = $this->normalize_block_type( $single_block );
+        $export_target = get_post_meta( $post->ID, self::META_EXPORT_TARGET, true );
+        if ( ! in_array( $export_target, [ 'sections', 'blocks', 'block_type', 'theme_json' ], true ) ) { $export_target = 'sections'; }
+        $debug = (bool) get_post_meta( $post->ID, self::META_DEBUG, true );
+        $single_block_valid = true;
+        if ( $block_mode === 'single' && ! empty( $single_block_norm ) ) {
+            $single_block_valid = $this->is_block_type_registered( $single_block_norm );
         }
+        $blocktypes = get_post_meta( $post->ID, self::META_BLOCKTYPES, true );
+        if ( ! is_array( $blocktypes ) || empty( $blocktypes ) ) { $blocktypes = [ 'core/group', 'core/columns', 'core/column', 'core/cover' ]; }
         $blocktypes_str = implode( ', ', array_map( 'sanitize_text_field', $blocktypes ) );
+
         echo '<p><label><input type="checkbox" name="up_ss_export" value="1" ' . checked( $export, true, false ) . ' /> ' . esc_html__( 'Exporter en fichier du thème', 'up' ) . '</label></p>';
-        echo '<p><label>' . esc_html__( 'BlockTypes (séparés par des virgules)', 'up' ) . '<br/>';
-        echo '<input type="text" class="widefat" name="up_ss_blocktypes" value="' . esc_attr( $blocktypes_str ) . '" placeholder="core/group, core/columns, core/column, core/cover" />';
+
+        echo '<p><label>' . esc_html__( 'Cible d\'export', 'up' ) . '<br/>';
+        echo '<select name="up_ss_export_target" class="widefat" id="up-ss-export-target">';
+        $targets = [
+            'sections'   => __( 'Section (styles/sections)', 'up' ),
+            'block_type' => __( 'Block spécifique (styles/blocks/<type>)', 'up' ),
+            'blocks'     => __( 'Blocks multiples (styles/blocks)', 'up' ),
+            'theme_json' => __( 'Thème (écrire dans theme.json)', 'up' ),
+        ];
+        foreach ( $targets as $val => $label ) {
+            echo '<option value="' . esc_attr( $val ) . '" ' . selected( $export_target, $val, false ) . '>' . esc_html( $label ) . '</option>';
+        }
+        echo '</select>';
         echo '</label></p>';
-        echo '<p class="description">' . esc_html__( 'Les styles seront déduits automatiquement à partir des blocs du contenu (group/cover, heading, button, etc.).', 'up' ) . '</p>';
+
+        echo '<p><label>' . esc_html__( 'Mode type de block', 'up' ) . '<br/>';
+        echo '<select name="up_ss_block_mode" class="widefat" id="up-ss-block-mode">';
+        echo '<option value="multiple" ' . selected( $block_mode, 'multiple', false ) . '>' . esc_html__( 'Multiple (liste de blockTypes)', 'up' ) . '</option>';
+        echo '<option value="single" ' . selected( $block_mode, 'single', false ) . '>' . esc_html__( 'Un seul type de block', 'up' ) . '</option>';
+        echo '</select>';
+        echo '</label></p>';
+
+        echo '<p id="up-ss-single-block-wrap" style="' . ( $block_mode === 'single' ? '' : 'display:none;' ) . '">';
+        echo '<label>' . esc_html__( 'Type de block (sélectionner dans la liste)', 'up' ) . '<br/>';
+        echo '<input type="text" class="widefat" name="up_ss_single_block" list="up-ss-block-list" value="' . esc_attr( $single_block ) . '" placeholder="core/paragraph" />';
+        echo '</label>';
+        $registered_blocks = [];
+        if ( class_exists( 'WP_Block_Type_Registry' ) ) {
+            $reg = WP_Block_Type_Registry::get_instance();
+            if ( method_exists( $reg, 'get_all_registered' ) ) {
+                $all = $reg->get_all_registered();
+                if ( is_array( $all ) ) { foreach ( $all as $bn => $bt ) { $registered_blocks[] = $bn; } }
+            }
+        }
+        if ( ! empty( $registered_blocks ) ) {
+            sort( $registered_blocks );
+            echo '<datalist id="up-ss-block-list">';
+            foreach ( $registered_blocks as $bn ) { echo '<option value="' . esc_attr( $bn ) . '"></option>'; }
+            echo '</datalist>';
+        }
+        if ( $block_mode === 'single' && $single_block && ! $single_block_valid ) {
+            echo '<span style="color:#b32d2e;display:block;margin-top:4px;">' . esc_html__( 'Attention: ce type de block n\'existe pas. Vérifiez l\'orthographe (ex: core/paragraph).', 'up' ) . '</span>';
+        }
+        echo '</p>';
+
+        echo '<p id="up-ss-multiple-blocks-wrap" style="' . ( $block_mode === 'multiple' ? '' : 'display:none;' ) . '">';
+        echo '<label>' . esc_html__( 'BlockTypes (séparés par des virgules)', 'up' ) . '<br/>';
+        echo '<input type="text" class="widefat" name="up_ss_blocktypes" value="' . esc_attr( $blocktypes_str ) . '" placeholder="core/group, core/columns, core/column, core/cover" />';
+        echo '</label>';
+        echo '</p>';
+
+        echo '<p class="description">' . esc_html__( 'Les styles seront déduits automatiquement à partir des blocs du contenu.', 'up' ) . '</p>';
+        echo '<script>document.addEventListener("DOMContentLoaded",function(){var mode=document.getElementById("up-ss-block-mode");var sWrap=document.getElementById("up-ss-single-block-wrap");var mWrap=document.getElementById("up-ss-multiple-blocks-wrap");function sync(){if(mode.value==="single"){sWrap.style.display="";mWrap.style.display="none";}else{sWrap.style.display="none";mWrap.style.display="";}}mode.addEventListener("change",sync);sync();});</script>';
+
+        echo '<hr/>';
+        echo '<p><label><input type="checkbox" name="up_ss_debug" value="1" ' . checked( $debug, true, false ) . ' /> ' . esc_html__( 'Mode debug (affiche des détails lors de l\'export)', 'up' ) . '</label></p>';
     }
 
     public function save_meta_box( $post_id, $post, $update ) {
@@ -346,38 +155,92 @@ class Up_Section_Styles_Plugin {
         if ( ! current_user_can( 'edit_post', $post_id ) ) return;
 
         $export = isset( $_POST['up_ss_export'] ) ? (bool) $_POST['up_ss_export'] : false;
+        $export_target = isset( $_POST['up_ss_export_target'] ) ? sanitize_text_field( wp_unslash( $_POST['up_ss_export_target'] ) ) : 'sections';
+        if ( ! in_array( $export_target, [ 'sections', 'blocks', 'block_type', 'theme_json' ], true ) ) { $export_target = 'sections'; }
+        $block_mode = isset( $_POST['up_ss_block_mode'] ) ? sanitize_text_field( wp_unslash( $_POST['up_ss_block_mode'] ) ) : 'multiple';
+        if ( ! in_array( $block_mode, [ 'single', 'multiple' ], true ) ) { $block_mode = 'multiple'; }
+        $single_block = isset( $_POST['up_ss_single_block'] ) ? sanitize_text_field( wp_unslash( $_POST['up_ss_single_block'] ) ) : '';
+        $debug = isset( $_POST['up_ss_debug'] ) ? (bool) $_POST['up_ss_debug'] : false;
         $blocktypes_str = isset( $_POST['up_ss_blocktypes'] ) ? (string) wp_unslash( $_POST['up_ss_blocktypes'] ) : '';
         $blocktypes = array_filter( array_map( 'trim', explode( ',', $blocktypes_str ) ) );
-        if ( empty( $blocktypes ) ) {
-            $blocktypes = [ 'core/group', 'core/columns', 'core/column', 'core/cover' ];
-        }
+        if ( empty( $blocktypes ) ) { $blocktypes = [ 'core/group', 'core/columns', 'core/column', 'core/cover' ]; }
 
         update_post_meta( $post_id, self::META_EXPORT, $export );
         update_post_meta( $post_id, self::META_BLOCKTYPES, $blocktypes );
+        update_post_meta( $post_id, self::META_BLOCK_MODE, $block_mode );
+        update_post_meta( $post_id, self::META_SINGLE_BLOCK, $single_block );
+        update_post_meta( $post_id, self::META_EXPORT_TARGET, $export_target );
+        update_post_meta( $post_id, self::META_DEBUG, $debug );
     }
 
     public function maybe_write_style_file( $post_id, $post, $update ) {
-        // Avoid autosave/REST revisions
         if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
         if ( wp_is_post_revision( $post_id ) ) return;
 
         $export = (bool) get_post_meta( $post_id, self::META_EXPORT, true );
-        if ( ! $export ) {
+        if ( ! $export ) return;
+
+        $export_target = get_post_meta( $post_id, self::META_EXPORT_TARGET, true );
+        if ( ! in_array( $export_target, [ 'sections', 'blocks', 'block_type', 'theme_json' ], true ) ) { $export_target = 'sections'; }
+        $block_mode = get_post_meta( $post_id, self::META_BLOCK_MODE, true );
+        if ( ! in_array( $block_mode, [ 'single', 'multiple' ], true ) ) { $block_mode = 'multiple'; }
+        $single_block = (string) get_post_meta( $post_id, self::META_SINGLE_BLOCK, true );
+        $single_block = $this->normalize_block_type( $single_block );
+        // Force single behavior when target is block_type
+        $is_single = ( $export_target === 'block_type' ) ? true : ( $block_mode === 'single' );
+        $target_block = $is_single ? $single_block : '';
+
+        // build styles
+        $decoded = null;
+        if ( $is_single ) {
+            if ( empty( $target_block ) ) {
+                set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'error', 'msg' => __( 'Sélectionnez un type de block pour l\'export "Block spécifique".', 'up' ) ], 30 );
+                return;
+            }
+            if ( ! $this->is_block_type_registered( $target_block ) ) {
+                set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'error', 'msg' => sprintf( __( 'Type de block inconnu: %s', 'up' ), esc_html( $single_block ) ) ], 30 );
+                return;
+            }
+            $decoded = [ 'styles' => $this->infer_styles_for_single_block( $post_id, $target_block ) ];
+        } else {
+            $decoded = [ 'styles' => [] ]; // basic for now
+        }
+        if ( empty( $decoded ) || ! is_array( $decoded ) ) return;
+
+        $slug = sanitize_title( get_post_field( 'post_name', $post_id ) ?: get_the_title( $post_id ) );
+        if ( '' === $slug ) { $slug = 'section-style-' . $post_id; }
+
+        if ( $export_target === 'theme_json' ) {
+            // use forced single logic
+            if ( ! $target_block ) {
+                set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'error', 'msg' => __( 'Pour écrire dans theme.json, sélectionnez le mode "Un seul type de block" et renseignez le type.', 'up' ) ], 30 );
+                return;
+            }
+            $styles_to_write = isset( $decoded['styles'] ) ? $decoded['styles'] : [];
+            $styles_to_write = $this->normalize_styles_for_single_block( $target_block, $styles_to_write );
+            $ok = $this->write_to_theme_json_block_defaults( $target_block, $styles_to_write );
+            if ( ! $ok ) {
+                set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'error', 'msg' => __( 'Échec de la mise à jour de theme.json.', 'up' ) ], 30 );
+            } else {
+                $debug = (bool) get_post_meta( $post_id, self::META_DEBUG, true );
+                if ( $debug ) {
+                    $preview = wp_json_encode( [ 'block' => $target_block, 'styles_keys' => array_keys( $styles_to_write ) ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+                    set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'success', 'msg' => sprintf( __( 'theme.json mis à jour pour "%s". Aperçu: %s', 'up' ), esc_html( $target_block ), $preview ) ], 30 );
+                } else {
+                    set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'success', 'msg' => __( 'theme.json mis à jour pour le type de block.', 'up' ) ], 30 );
+                }
+            }
             return;
         }
 
-        // Build style object from editor content
-        $decoded = $this->infer_styles_from_content( $post_id );
-        if ( empty( $decoded ) || ! is_array( $decoded ) ) return;
-
-        $slug = sanitize_title( $post->post_name ?: $post->post_title );
-        if ( '' === $slug ) {
-            $slug = 'style-' . $post_id;
-        }
-
+        // write variation file
         $blocktypes = get_post_meta( $post_id, self::META_BLOCKTYPES, true );
-        if ( ! is_array( $blocktypes ) || empty( $blocktypes ) ) {
-            $blocktypes = [ 'core/group', 'core/columns', 'core/column', 'core/cover' ];
+        if ( ! is_array( $blocktypes ) || empty( $blocktypes ) ) { $blocktypes = [ 'core/group', 'core/columns', 'core/column', 'core/cover' ]; }
+        $effective_blocks = [];
+        if ( $is_single && ! empty( $target_block ) ) {
+            $effective_blocks = [ $target_block ];
+        } else {
+            $effective_blocks = array_values( array_filter( array_map( 'strval', $blocktypes ) ) );
         }
 
         $obj = [
@@ -385,18 +248,23 @@ class Up_Section_Styles_Plugin {
             'version' => 3,
             'slug' => $slug,
             'title' => get_the_title( $post_id ),
-            'blockTypes' => array_values( array_filter( array_map( 'strval', $blocktypes ) ) ),
+            'blockTypes' => $effective_blocks,
         ];
         if ( isset( $decoded['styles'] ) && is_array( $decoded['styles'] ) ) {
-            $obj['styles'] = $decoded['styles'];
+            $styles_normalized = $decoded['styles'];
+            if ( $is_single && ! empty( $target_block ) ) {
+                $styles_normalized = $this->normalize_styles_for_single_block( $target_block, $styles_normalized );
+            }
+            $obj['styles'] = $styles_normalized;
+        } else {
+            $obj['styles'] = new stdClass();
         }
 
-        $target_dir = $this->get_target_dir();
+        $target_dir = $this->get_target_dir( $export_target, $target_block );
         if ( ! wp_mkdir_p( $target_dir ) ) {
             set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'error', 'msg' => __( 'Impossible de créer le dossier de destination pour l\'export.', 'up' ) ], 30 );
             return;
         }
-
         $file = trailingslashit( $target_dir ) . $slug . '.json';
         $json = wp_json_encode( $obj, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT );
         $bytes = @file_put_contents( $file, $json );
@@ -405,26 +273,225 @@ class Up_Section_Styles_Plugin {
         } else {
             $root = defined( 'ABSPATH' ) ? ABSPATH : '';
             $display = $root ? str_replace( $root, '', $file ) : $file;
-            set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'success', 'msg' => sprintf( __( 'Style exporté vers: %s', 'up' ), esc_html( $display ) ) ], 30 );
+            $debug = (bool) get_post_meta( $post_id, self::META_DEBUG, true );
+            if ( $debug ) {
+                $preview = wp_json_encode( [ 'target' => $export_target, 'block_mode' => $block_mode, 'single_block' => $single_block, 'file' => $display, 'blockTypes' => $effective_blocks, 'style_keys' => isset( $obj['styles'] ) && is_array( $obj['styles'] ) ? array_keys( $obj['styles'] ) : [] ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+                set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'success', 'msg' => sprintf( __( 'Style exporté vers: %s — Debug: %s', 'up' ), esc_html( $display ), $preview ) ], 30 );
+            } else {
+                set_transient( 'up_ss_notice_' . $post_id, [ 'type' => 'success', 'msg' => sprintf( __( 'Style exporté vers: %s', 'up' ), esc_html( $display ) ) ], 30 );
+            }
         }
     }
 
-    private function get_target_dir() {
-        $theme_dir = get_stylesheet_directory(); // active child/main theme
-        return trailingslashit( $theme_dir ) . 'styles/sections';
-    }
-
-    public function maybe_render_admin_notice() {
-        $screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+    public function admin_notice() {
+        if ( ! is_admin() ) return;
+        global $pagenow;
+        if ( $pagenow !== 'post.php' && $pagenow !== 'post-new.php' ) return;
         $post_id = isset( $_GET['post'] ) ? absint( $_GET['post'] ) : 0;
         if ( ! $post_id ) return;
-        if ( $screen && $screen->base !== 'post' ) return;
-        $notice = get_transient( 'up_ss_notice_' . $post_id );
-        if ( ! $notice ) return;
-        delete_transient( 'up_ss_notice_' . $post_id );
-        $class = $notice['type'] === 'success' ? 'notice notice-success' : 'notice notice-error';
-        echo '<div class="' . esc_attr( $class ) . '"><p>' . esc_html( $notice['msg'] ) . '</p></div>';
+        $key = 'up_ss_notice_' . $post_id;
+        $notice = get_transient( $key );
+        if ( $notice && is_array( $notice ) && isset( $notice['type'], $notice['msg'] ) ) {
+            $class = $notice['type'] === 'error' ? 'notice notice-error' : 'notice notice-success';
+            echo '<div class="' . esc_attr( $class ) . '"><p>' . wp_kses_post( $notice['msg'] ) . '</p></div>';
+            delete_transient( $key );
+        }
+    }
+
+    private function get_target_dir( $export_target = 'sections', $single_block = '' ) {
+        $theme_dir = get_stylesheet_directory();
+        $base = trailingslashit( $theme_dir ) . 'styles/';
+        if ( $export_target === 'blocks' ) return $base . 'blocks';
+        if ( $export_target === 'block_type' ) {
+            $slug = $single_block ? str_replace( '/', '-', sanitize_title( $single_block ) ) : 'block';
+            return $base . 'blocks/' . $slug;
+        }
+        return $base . 'sections';
+    }
+
+    private function normalize_block_type( $block ) {
+        $block = is_string( $block ) ? trim( $block ) : '';
+        if ( $block === '' ) return $block;
+        $map = [ 'core/paragraphe' => 'core/paragraph', 'core/titre' => 'core/heading' ];
+        return isset( $map[ $block ] ) ? $map[ $block ] : $block;
+    }
+
+    private function is_block_type_registered( $block_name ) {
+        if ( ! is_string( $block_name ) || $block_name === '' ) return false;
+        if ( class_exists( 'WP_Block_Type_Registry' ) ) {
+            $registry = WP_Block_Type_Registry::get_instance();
+            if ( method_exists( $registry, 'is_registered' ) ) return $registry->is_registered( $block_name );
+            if ( method_exists( $registry, 'get_registered' ) ) return null !== $registry->get_registered( $block_name );
+        }
+        return true; // do not block if registry unavailable
+    }
+
+    private function resolve_color_from_attrs( $attrs, $key ) {
+        $val = null;
+        if ( isset( $attrs[ $key . 'Color' ] ) ) {
+            $slug = sanitize_title( $attrs[ $key . 'Color' ] );
+            $val = 'var(--wp--preset--color--' . $slug . ')';
+        } elseif ( isset( $attrs['style']['color'][ $key ] ) ) {
+            $val = $this->normalize_color_value( $attrs['style']['color'][ $key ] );
+        }
+        return $val;
+    }
+
+    private function normalize_color_value( $val ) {
+        if ( is_string( $val ) ) {
+            if ( 0 === strpos( $val, 'var:preset|color|' ) ) {
+                $slug = sanitize_title( substr( $val, strlen( 'var:preset|color|' ) ) );
+                return 'var(--wp--preset--color--' . $slug . ')';
+            }
+            if ( 0 === strpos( $val, 'var(' ) ) return $val;
+            if ( preg_match( '/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $val ) ) return $val;
+        }
+        return $val;
+    }
+
+    private function normalize_spacing_value( $val ) {
+        if ( is_string( $val ) && 0 === strpos( $val, 'var:preset|spacing|' ) ) {
+            $slug = sanitize_title( substr( $val, strlen( 'var:preset|spacing|' ) ) );
+            return 'var(--wp--preset--spacing--' . $slug . ')';
+        }
+        return $val;
+    }
+
+    private function infer_styles_for_single_block( $post_id, $block_type ) {
+        $content = get_post_field( 'post_content', $post_id );
+        $blocks = function_exists( 'parse_blocks' ) ? parse_blocks( $content ) : [];
+        $found = null;
+        $walker = function( $nodes ) use ( &$walker, $block_type, &$found ) {
+            foreach ( $nodes as $b ) {
+                if ( ! is_array( $b ) ) continue;
+                if ( isset( $b['blockName'] ) && $b['blockName'] === $block_type ) { $found = $b; return; }
+                if ( ! empty( $b['innerBlocks'] ) ) $walker( $b['innerBlocks'] );
+                if ( $found ) return;
+            }
+        };
+        $walker( $blocks );
+        if ( ! $found ) return [];
+        $attrs = isset( $found['attrs'] ) ? $found['attrs'] : [];
+        $styles = [];
+
+        // Colors
+        $bg = $this->resolve_color_from_attrs( $attrs, 'background' );
+        $tx = $this->resolve_color_from_attrs( $attrs, 'text' );
+        $gradient = null;
+        if ( isset( $attrs['style']['color']['gradient'] ) ) { $gradient = $attrs['style']['color']['gradient']; }
+        elseif ( isset( $attrs['gradient'] ) ) { $gslug = sanitize_title( $attrs['gradient'] ); $gradient = 'var(--wp--preset--gradient--' . $gslug . ')'; }
+        if ( $bg || $tx || $gradient ) {
+            $styles['color'] = [];
+            if ( $bg ) $styles['color']['background'] = $bg;
+            if ( $tx ) $styles['color']['text'] = $tx;
+            if ( $gradient ) $styles['color']['gradient'] = $gradient;
+        }
+
+        // Border
+        if ( isset( $attrs['style']['border'] ) && is_array( $attrs['style']['border'] ) ) {
+            $b = $attrs['style']['border'];
+            $out = [];
+            if ( isset( $b['width'] ) ) $out['width'] = $b['width'];
+            if ( isset( $b['radius'] ) ) $out['radius'] = $b['radius'];
+            if ( isset( $b['color'] ) ) { $c = $this->normalize_color_value( $b['color'] ); if ( $c ) { $out['color'] = $c; } }
+            if ( isset( $b['style'] ) && $b['style'] !== '' ) { $out['style'] = $b['style']; }
+            elseif ( isset( $b['width'] ) && $b['width'] !== '' ) { $out['style'] = 'solid'; }
+            if ( ! empty( $out ) ) $styles['border'] = $out;
+        }
+
+        // Spacing padding
+        if ( isset( $attrs['style']['spacing']['padding'] ) && is_array( $attrs['style']['spacing']['padding'] ) ) {
+            $pad = $attrs['style']['spacing']['padding'];
+            $pout = [];
+            foreach ( [ 'top', 'right', 'bottom', 'left' ] as $side ) {
+                if ( isset( $pad[ $side ] ) ) { $pout[ $side ] = $this->normalize_spacing_value( $pad[ $side ] ); }
+            }
+            if ( ! empty( $pout ) ) $styles['spacing']['padding'] = $pout;
+        }
+        // Spacing margin
+        if ( isset( $attrs['style']['spacing']['margin'] ) && is_array( $attrs['style']['spacing']['margin'] ) ) {
+            $mar = $attrs['style']['spacing']['margin'];
+            $mout = [];
+            foreach ( [ 'top', 'right', 'bottom', 'left' ] as $side ) {
+                if ( isset( $mar[ $side ] ) ) { $mout[ $side ] = $this->normalize_spacing_value( $mar[ $side ] ); }
+            }
+            if ( ! empty( $mout ) ) $styles['spacing']['margin'] = $mout;
+        }
+        // Spacing blockGap
+        if ( isset( $attrs['style']['spacing']['blockGap'] ) && $attrs['style']['spacing']['blockGap'] !== '' ) {
+            $styles['spacing']['blockGap'] = $this->normalize_spacing_value( $attrs['style']['spacing']['blockGap'] );
+        }
+
+        // Typography
+        if ( isset( $attrs['fontSize'] ) && is_string( $attrs['fontSize'] ) && $attrs['fontSize'] !== '' ) {
+            $slug = sanitize_title( $attrs['fontSize'] );
+            $styles['typography']['fontSize'] = 'var(--wp--preset--font-size--' . $slug . ')';
+        }
+        if ( isset( $attrs['style']['typography'] ) && is_array( $attrs['style']['typography'] ) ) {
+            $t = $attrs['style']['typography'];
+            $map_keys = [ 'letterSpacing', 'lineHeight', 'textDecoration', 'writingMode', 'fontStyle', 'fontWeight', 'textTransform', 'textAlign' ];
+            foreach ( $map_keys as $k ) { if ( isset( $t[ $k ] ) && $t[ $k ] !== '' ) { $styles['typography'][ $k ] = $t[ $k ]; } }
+            if ( isset( $t['fontSize'] ) && $t['fontSize'] !== '' && ! isset( $styles['typography']['fontSize'] ) ) { $styles['typography']['fontSize'] = $t['fontSize']; }
+        }
+
+        // Layout
+        if ( isset( $attrs['style']['layout'] ) && is_array( $attrs['style']['layout'] ) ) {
+            $l = $attrs['style']['layout'];
+            foreach ( [ 'justifyContent', 'alignItems', 'flexWrap' ] as $k ) { if ( isset( $l[ $k ] ) && $l[ $k ] !== '' ) { $styles['layout'][ $k ] = $l[ $k ]; } }
+        }
+
+        // Dimensions
+        if ( isset( $attrs['style']['dimensions'] ) && is_array( $attrs['style']['dimensions'] ) ) {
+            $d = $attrs['style']['dimensions'];
+            if ( isset( $d['minHeight'] ) && $d['minHeight'] !== '' ) { $styles['dimensions']['minHeight'] = $d['minHeight']; }
+            if ( isset( $d['aspectRatio'] ) && $d['aspectRatio'] !== '' ) { $styles['dimensions']['aspectRatio'] = $d['aspectRatio']; }
+        }
+
+        // Shadow / Outline
+        if ( isset( $attrs['style']['shadow'] ) && $attrs['style']['shadow'] !== '' ) { $styles['shadow'] = $attrs['style']['shadow']; }
+        if ( isset( $attrs['style']['outline'] ) && $attrs['style']['outline'] !== '' ) { $styles['outline'] = $attrs['style']['outline']; }
+
+        // Elements -> link
+        if ( isset( $attrs['style']['elements']['link']['color']['text'] ) ) {
+            $l = $attrs['style']['elements']['link']['color']['text'];
+            $val = $this->normalize_color_value( $l );
+            if ( $val ) { $styles['elements']['link']['color']['text'] = $val; }
+            $styles['elements']['link']['typography']['textDecoration'] = 'none';
+        }
+
+        return $styles;
+    }
+
+    private function normalize_styles_for_single_block( $block_type, $styles ) {
+        // Special heading normalization: promote text color
+        if ( $block_type === 'core/heading' ) {
+            if ( isset( $styles['elements']['heading']['color']['text'] ) ) {
+                $styles['color']['text'] = $styles['elements']['heading']['color']['text'];
+                unset( $styles['elements']['heading']['color']['text'] );
+                if ( empty( $styles['elements']['heading']['color'] ) ) unset( $styles['elements']['heading']['color'] );
+                if ( empty( $styles['elements']['heading'] ) ) unset( $styles['elements']['heading'] );
+            }
+        }
+        return $styles;
+    }
+
+    private function write_to_theme_json_block_defaults( $block_type, $styles ) {
+        $theme_dir = get_stylesheet_directory();
+        $file = trailingslashit( $theme_dir ) . 'theme.json';
+        if ( ! file_exists( $file ) ) return false;
+        $raw = file_get_contents( $file );
+        if ( $raw === false ) return false;
+        $json = json_decode( $raw, true );
+        if ( ! is_array( $json ) ) return false;
+        if ( ! isset( $json['styles'] ) || ! is_array( $json['styles'] ) ) $json['styles'] = [];
+        if ( ! isset( $json['styles']['blocks'] ) || ! is_array( $json['styles']['blocks'] ) ) $json['styles']['blocks'] = [];
+        if ( ! isset( $json['styles']['blocks'][ $block_type ] ) || ! is_array( $json['styles']['blocks'][ $block_type ] ) ) $json['styles']['blocks'][ $block_type ] = [];
+        $json['styles']['blocks'][ $block_type ] = array_replace_recursive( $json['styles']['blocks'][ $block_type ], $styles );
+        $out = wp_json_encode( $json, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT );
+        return false !== @file_put_contents( $file, $out );
     }
 }
 
-new Up_Section_Styles_Plugin();
+add_action( 'plugins_loaded', function() {
+    new Up_Section_Styles_Plugin_Restore();
+} );
