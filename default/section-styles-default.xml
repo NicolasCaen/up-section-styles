@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section_styles>
+  <item>
+    <post>
+      <title>Style 4</title>
+      <slug>style-4</slug>
+      <status>publish</status>
+      <content><![CDATA[<!-- wp:group {"className":"ng1-style-preview"} -->
+<div class="wp-block-group ng1-style-preview"><!-- wp:heading -->
+<h2 class="wp-block-heading">Titre de section</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:buttons -->
+<div class="wp-block-buttons"><!-- wp:button {"className":"is-style-outline"} -->
+<div class="wp-block-button is-style-outline"><a class="wp-block-button__link wp-element-button">Bouton primaire</a></div>
+<!-- /wp:button --></div>
+<!-- /wp:buttons -->
+
+<!-- wp:paragraph -->
+<p>Un lien: <a href="#">Voir plus</a></p>
+<!-- /wp:paragraph --></div>
+<!-- /wp:group -->]]></content>
+    </post>
+    <meta>
+      <meta_key name="_edit_lock">1758718588:1</meta_key>
+      <meta_key name="_edit_last">1</meta_key>
+      <meta_key name="_ng1_section_style_export">1</meta_key>
+      <meta_key name="_ng1_section_style_blocktypes">a:4:{i:0;s:10:"core/group";i:1;s:12:"core/columns";i:2;s:11:"core/column";i:3;s:10:"core/cover";}</meta_key>
+      <meta_key name="_up_section_style_export">1</meta_key>
+      <meta_key name="_up_section_style_blocktypes">a:4:{i:0;s:10:"core/group";i:1;s:12:"core/columns";i:2;s:11:"core/column";i:3;s:10:"core/cover";}</meta_key>
+      <meta_key name="_up_section_style_block_mode">multiple</meta_key>
+      <meta_key name="_up_section_style_single_block"></meta_key>
+      <meta_key name="_up_section_style_export_target">sections</meta_key>
+      <meta_key name="_up_section_style_debug"></meta_key>
+      <meta_key name="_up_section_style_extract_mode">section</meta_key>
+    </meta>
+  </item>
+  <item>
+    <post>
+      <title>Style 3</title>
+      <slug>style-3</slug>
+      <status>publish</status>
+      <content><![CDATA[<!-- wp:group {"className":"ng1-style-preview"} -->
+<div class="wp-block-group ng1-style-preview"><!-- wp:heading -->
+<h2 class="wp-block-heading">Titre de section</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:buttons -->
+<div class="wp-block-buttons"><!-- wp:button {"className":"is-style-outline"} -->
+<div class="wp-block-button is-style-outline"><a class="wp-block-button__link wp-element-button">Bouton primaire</a></div>
+<!-- /wp:button --></div>
+<!-- /wp:buttons -->
+
+<!-- wp:paragraph -->
+<p>Un lien: <a href="#">Voir plus</a></p>
+<!-- /wp:paragraph --></div>
+<!-- /wp:group -->]]></content>
+    </post>
+    <meta>
+      <meta_key name="_edit_lock">1758718572:1</meta_key>
+      <meta_key name="_edit_last">1</meta_key>
+      <meta_key name="_ng1_section_style_export">1</meta_key>
+      <meta_key name="_ng1_section_style_blocktypes">a:4:{i:0;s:10:"core/group";i:1;s:12:"core/columns";i:2;s:11:"core/column";i:3;s:10:"core/cover";}</meta_key>
+      <meta_key name="_up_section_style_export">1</meta_key>
+      <meta_key name="_up_section_style_blocktypes">a:4:{i:0;s:10:"core/group";i:1;s:12:"core/columns";i:2;s:11:"core/column";i:3;s:10:"core/cover";}</meta_key>
+      <meta_key name="_up_section_style_block_mode">multiple</meta_key>
+      <meta_key name="_up_section_style_single_block"></meta_key>
+      <meta_key name="_up_section_style_export_target">sections</meta_key>
+      <meta_key name="_up_section_style_debug"></meta_key>
+      <meta_key name="_up_section_style_extract_mode">section</meta_key>
+    </meta>
+  </item>
+  <item>
+    <post>
+      <title>Style 2</title>
+      <slug>style-2</slug>
+      <status>publish</status>
+      <content><![CDATA[<!-- wp:group {"className":"ng1-style-preview"} -->
+<div class="wp-block-group ng1-style-preview"><!-- wp:heading -->
+<h2 class="wp-block-heading">Titre de section</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:buttons -->
+<div class="wp-block-buttons"><!-- wp:button {"className":"is-style-outline"} -->
+<div class="wp-block-button is-style-outline"><a class="wp-block-button__link wp-element-button">Bouton primaire</a></div>
+<!-- /wp:button --></div>
+<!-- /wp:buttons -->
+
+<!-- wp:paragraph -->
+<p>Un lien: <a href="#">Voir plus</a></p>
+<!-- /wp:paragraph --></div>
+<!-- /wp:group -->]]></content>
+    </post>
+    <meta>
+      <meta_key name="_edit_lock">1758718565:1</meta_key>
+      <meta_key name="_edit_last">1</meta_key>
+      <meta_key name="_ng1_section_style_export">1</meta_key>
+      <meta_key name="_ng1_section_style_blocktypes">a:4:{i:0;s:10:"core/group";i:1;s:12:"core/columns";i:2;s:11:"core/column";i:3;s:10:"core/cover";}</meta_key>
+      <meta_key name="_up_section_style_export">1</meta_key>
+      <meta_key name="_up_section_style_blocktypes">a:4:{i:0;s:10:"core/group";i:1;s:12:"core/columns";i:2;s:11:"core/column";i:3;s:10:"core/cover";}</meta_key>
+      <meta_key name="_up_section_style_block_mode">multiple</meta_key>
+      <meta_key name="_up_section_style_single_block"></meta_key>
+      <meta_key name="_up_section_style_export_target">sections</meta_key>
+      <meta_key name="_up_section_style_debug"></meta_key>
+      <meta_key name="_up_section_style_extract_mode">section</meta_key>
+    </meta>
+  </item>
+  <item>
+    <post>
+      <title>Style 1</title>
+      <slug>style-1</slug>
+      <status>publish</status>
+      <content><![CDATA[<!-- wp:group {"className":"ng1-style-preview"} -->
+<div class="wp-block-group ng1-style-preview"><!-- wp:heading -->
+<h2 class="wp-block-heading">Titre de section</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:buttons -->
+<div class="wp-block-buttons"><!-- wp:button {"className":"is-style-outline"} -->
+<div class="wp-block-button is-style-outline"><a class="wp-block-button__link wp-element-button">Bouton primaire</a></div>
+<!-- /wp:button --></div>
+<!-- /wp:buttons -->
+
+<!-- wp:paragraph -->
+<p>Un lien: <a href="#">Voir plus</a></p>
+<!-- /wp:paragraph --></div>
+<!-- /wp:group -->]]></content>
+    </post>
+    <meta>
+      <meta_key name="_edit_lock">1758718533:1</meta_key>
+      <meta_key name="_edit_last">1</meta_key>
+      <meta_key name="_ng1_section_style_export">1</meta_key>
+      <meta_key name="_ng1_section_style_blocktypes">a:4:{i:0;s:10:"core/group";i:1;s:12:"core/columns";i:2;s:11:"core/column";i:3;s:10:"core/cover";}</meta_key>
+      <meta_key name="_up_section_style_export">1</meta_key>
+      <meta_key name="_up_section_style_blocktypes">a:4:{i:0;s:10:"core/group";i:1;s:12:"core/columns";i:2;s:11:"core/column";i:3;s:10:"core/cover";}</meta_key>
+      <meta_key name="_up_section_style_block_mode">multiple</meta_key>
+      <meta_key name="_up_section_style_single_block"></meta_key>
+      <meta_key name="_up_section_style_export_target">sections</meta_key>
+      <meta_key name="_up_section_style_debug"></meta_key>
+      <meta_key name="_up_section_style_extract_mode">section</meta_key>
+    </meta>
+  </item>
+  <item>
+    <post>
+      <title>Theme json</title>
+      <slug>theme-json</slug>
+      <status>publish</status>
+      <content><![CDATA[<!-- wp:group -->
+<div class="wp-block-group"><!-- wp:heading {"level":1} -->
+<h1 class="wp-block-heading">Titre de section</h1>
+<!-- /wp:heading -->
+
+<!-- wp:heading -->
+<h2 class="wp-block-heading">Titre de section H2</h2>
+<!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Titre de section H3</h3>
+<!-- /wp:heading -->
+
+<!-- wp:heading {"level":4} -->
+<h4 class="wp-block-heading">Titre de section H4</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Un paragraphe avec un <a href="/page-d-exemple/">lien</a>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:buttons -->
+<div class="wp-block-buttons"><!-- wp:button -->
+<div class="wp-block-button"><a class="wp-block-button__link wp-element-button" href="#">En savoir plus</a></div>
+<!-- /wp:button --></div>
+<!-- /wp:buttons --></div>
+<!-- /wp:group -->]]></content>
+    </post>
+    <meta>
+      <meta_key name="_edit_lock">1758719173:1</meta_key>
+      <meta_key name="_edit_last">1</meta_key>
+      <meta_key name="_up_section_style_export">1</meta_key>
+      <meta_key name="_up_section_style_blocktypes">a:4:{i:0;s:10:"core/group";i:1;s:12:"core/columns";i:2;s:11:"core/column";i:3;s:10:"core/cover";}</meta_key>
+      <meta_key name="_up_section_style_block_mode">multiple</meta_key>
+      <meta_key name="_up_section_style_single_block"></meta_key>
+      <meta_key name="_up_section_style_export_target">theme_json</meta_key>
+      <meta_key name="_up_section_style_debug">1</meta_key>
+      <meta_key name="_up_section_style_extract_mode">section</meta_key>
+    </meta>
+  </item>
+  <item>
+    <post>
+      <title>Paragraphe A</title>
+      <slug>paragraphe-a</slug>
+      <status>publish</status>
+      <content><![CDATA[<!-- wp:paragraph {"style":{"elements":{"link":{"color":{"text":"var:preset|color|contrast"}}},"spacing":{"padding":{"top":"var:preset|spacing|5","bottom":"var:preset|spacing|5","left":"var:preset|spacing|7","right":"var:preset|spacing|7"}}},"backgroundColor":"base","textColor":"accent-2","fontSize":"h-four"} -->
+<p class="has-accent-2-color has-base-background-color has-text-color has-background has-link-color has-h-four-font-size" style="padding-top:var(--wp--preset--spacing--5);padding-right:var(--wp--preset--spacing--7);padding-bottom:var(--wp--preset--spacing--5);padding-left:var(--wp--preset--spacing--7)">dvdz<a href="http://carre-deco.local/page-d-exemple/" data-type="page" data-id="2">vzevzr</a></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p></p>
+<!-- /wp:paragraph -->]]></content>
+    </post>
+    <meta>
+      <meta_key name="_edit_lock">1758712219:1</meta_key>
+      <meta_key name="_edit_last">1</meta_key>
+      <meta_key name="_up_section_style_export">1</meta_key>
+      <meta_key name="_up_section_style_blocktypes">a:4:{i:0;s:10:"core/group";i:1;s:12:"core/columns";i:2;s:11:"core/column";i:3;s:10:"core/cover";}</meta_key>
+      <meta_key name="_up_section_style_block_mode">multiple</meta_key>
+      <meta_key name="_up_section_style_single_block">core/paragraph</meta_key>
+      <meta_key name="_up_section_style_export_target">block_type</meta_key>
+      <meta_key name="_up_section_style_debug"></meta_key>
+      <meta_key name="_up_section_style_extract_mode">block</meta_key>
+    </meta>
+  </item>
+  <item>
+    <post>
+      <title>SECTION 6</title>
+      <slug>section-6</slug>
+      <status>publish</status>
+      <content><![CDATA[<!-- wp:paragraph {"placeholder":"Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt in culpa qui officia deserunt mollit anim id est laborum lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt in culpa qui officia deserunt mollit anim id est laborum lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor…","style":{"elements":{"link":{"color":{"text":"var:preset|color|accent-2"}}}},"backgroundColor":"base-2","textColor":"accent-2","fontSize":"xl"} -->
+<p class="has-accent-2-color has-base-2-background-color has-text-color has-background has-link-color has-xl-font-size">Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur excepteur sint</p>
+<!-- /wp:paragraph -->]]></content>
+    </post>
+    <meta>
+      <meta_key name="_edit_lock">1758707597:1</meta_key>
+      <meta_key name="_edit_last">1</meta_key>
+      <meta_key name="_up_section_style_export">1</meta_key>
+      <meta_key name="_up_section_style_blocktypes">a:4:{i:0;s:10:"core/group";i:1;s:12:"core/columns";i:2;s:11:"core/column";i:3;s:10:"core/cover";}</meta_key>
+      <meta_key name="_up_section_style_block_mode">multiple</meta_key>
+      <meta_key name="_up_section_style_single_block">core/paragraph</meta_key>
+      <meta_key name="_up_section_style_export_target">block_type</meta_key>
+      <meta_key name="_up_section_style_debug"></meta_key>
+      <meta_key name="_up_section_style_extract_mode">block</meta_key>
+    </meta>
+  </item>
+  <item>
+    <post>
+      <title>paragraphe test</title>
+      <slug>paragraphe-test</slug>
+      <status>publish</status>
+      <content><![CDATA[<!-- wp:paragraph {"placeholder":"Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt in culpa qui officia deserunt mollit anim id est laborum lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt in culpa qui officia deserunt mollit anim id est laborum lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor…","style":{"elements":{"link":{"color":{"text":"var:preset|color|contrast"}}},"spacing":{"padding":{"top":"var:preset|spacing|8","bottom":"var:preset|spacing|8"}}},"textColor":"accent-2","fontSize":"h-one"} -->
+<p class="has-accent-2-color has-text-color has-link-color has-h-one-font-size" style="padding-top:var(--wp--preset--spacing--8);padding-bottom:var(--wp--preset--spacing--8)">Lorem ipsum dolor sit amet consectetu<a href="http://carre-deco.local/page-d-exemple/" data-type="page" data-id="2">r adipiscing elit sed</a> do eiusmod tempor incididunt ut</p>
+<!-- /wp:paragraph -->]]></content>
+    </post>
+    <meta>
+      <meta_key name="_edit_lock">1758706084:1</meta_key>
+      <meta_key name="_edit_last">1</meta_key>
+      <meta_key name="_up_section_style_export">1</meta_key>
+      <meta_key name="_up_section_style_blocktypes">a:2:{i:0;s:14:"core/paragraph";i:1;s:12:"core/heading";}</meta_key>
+      <meta_key name="_up_section_style_block_mode">multiple</meta_key>
+      <meta_key name="_up_section_style_single_block">core/paragraph</meta_key>
+      <meta_key name="_up_section_style_export_target">blocks</meta_key>
+      <meta_key name="_up_section_style_debug"></meta_key>
+      <meta_key name="_up_section_style_extract_mode">block</meta_key>
+    </meta>
+  </item>
+  <item>
+    <post>
+      <title>Paragraphe</title>
+      <slug>paragraphe</slug>
+      <status>publish</status>
+      <content><![CDATA[<!-- wp:paragraph {"placeholder":"Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut…","fontSize":"h-three"} -->
+<p class="has-h-three-font-size">Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut…</p>
+<!-- /wp:paragraph -->]]></content>
+    </post>
+    <meta>
+      <meta_key name="_edit_lock">1758703172:1</meta_key>
+      <meta_key name="_edit_last">1</meta_key>
+      <meta_key name="_up_section_style_export">1</meta_key>
+      <meta_key name="_up_section_style_blocktypes">a:2:{i:0;s:12:"core/heading";i:1;s:14:"core/paragraph";}</meta_key>
+      <meta_key name="_up_section_style_block_mode">single</meta_key>
+      <meta_key name="_up_section_style_single_block">core/paragrapheee</meta_key>
+      <meta_key name="_up_section_style_export_target">blocks</meta_key>
+      <meta_key name="_up_section_style_debug">1</meta_key>
+    </meta>
+  </item>
+  <item>
+    <post>
+      <title>H1 style b</title>
+      <slug>h1-style</slug>
+      <status>publish</status>
+      <content><![CDATA[<!-- wp:heading {"style":{"elements":{"link":{"color":{"text":"var:preset|color|contrast"}}},"border":{"width":"32px","color":"#313135","radius":"85px"},"typography":{"letterSpacing":"23px","lineHeight":".4","textDecoration":"underline","writingMode":"vertical-rl","fontStyle":"normal","fontWeight":"100"},"spacing":{"padding":{"top":"var:preset|spacing|9","bottom":"var:preset|spacing|9","left":"var:preset|spacing|8","right":"var:preset|spacing|8"}}},"backgroundColor":"base-2","textColor":"accent-2","fontSize":"h-one"} -->
+<h2 class="wp-block-heading has-border-color has-accent-2-color has-base-2-background-color has-text-color has-background has-link-color has-h-one-font-size" style="border-color:#313135;border-width:32px;border-radius:85px;padding-top:var(--wp--preset--spacing--9);padding-right:var(--wp--preset--spacing--8);padding-bottom:var(--wp--preset--spacing--9);padding-left:var(--wp--preset--spacing--8);font-style:normal;font-weight:100;letter-spacing:23px;line-height:.4;text-decoration:underline;writing-mode:vertical-rl">TITRE <a href="http://carre-deco.local/page-d-exemple/" data-type="page" data-id="2">li</a>MON TITRE</h2>
+<!-- /wp:heading -->]]></content>
+    </post>
+    <meta>
+      <meta_key name="_edit_lock">1758702541:1</meta_key>
+      <meta_key name="_edit_last">1</meta_key>
+      <meta_key name="_up_section_style_export">1</meta_key>
+      <meta_key name="_up_section_style_blocktypes">a:2:{i:0;s:12:"core/heading";i:1;s:15:"core/paragraphe";}</meta_key>
+      <meta_key name="_up_section_style_block_mode">single</meta_key>
+      <meta_key name="_up_section_style_single_block">core/heading</meta_key>
+      <meta_key name="_up_section_style_export_target">block_type</meta_key>
+    </meta>
+  </item>
+</section_styles>

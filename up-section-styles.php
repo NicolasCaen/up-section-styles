@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Up Section Styles
  * Description: Registers the Section Style custom post type.
- * Version: 1.1.0
+ * Version: 1.1.1
  * Author: NG1 / Up
  */
 
@@ -58,6 +58,8 @@ class Up_Section_Styles_Plugin_Restore {
         add_action( 'save_post_' . self::CPT, [ $this, 'save_meta_box' ], 10, 3 );
         add_action( 'save_post_' . self::CPT, [ $this, 'maybe_write_style_file' ], 20, 3 );
         add_action( 'admin_notices', [ $this, 'admin_notice' ] );
+        add_action( 'admin_menu', [ $this, 'add_tools_menu' ] );
+        add_action( 'admin_post_up_ss_export_all', [ $this, 'handle_export_all' ] );
     }
 
     public function register_meta() {
@@ -744,6 +746,192 @@ class Up_Section_Styles_Plugin_Restore {
             }
         }
         return $a;
+    }
+
+    /* =============================
+     *  Admin: Import/Export XML
+     * ============================= */
+    public function add_tools_menu() {
+        add_submenu_page(
+            'edit.php?post_type=' . self::CPT,
+            __( 'Import/Export Section Styles', 'up' ),
+            __( 'Import/Export', 'up' ),
+            'manage_options',
+            'up-ss-import-export',
+            [ $this, 'render_import_export_page' ]
+        );
+    }
+
+    public function render_import_export_page() {
+        if ( ! current_user_can( 'manage_options' ) ) return;
+        $notice = '';
+        if ( isset( $_POST['up_ss_xml_action'] ) && check_admin_referer( 'up_ss_xml_action', 'up_ss_xml_nonce' ) ) {
+            $action = sanitize_text_field( wp_unslash( $_POST['up_ss_xml_action'] ) );
+            if ( $action === 'import_upload' ) {
+                if ( ! empty( $_FILES['up_ss_xml_file']['tmp_name'] ) && is_uploaded_file( $_FILES['up_ss_xml_file']['tmp_name'] ) ) {
+                    $xml = file_get_contents( $_FILES['up_ss_xml_file']['tmp_name'] );
+                    $count = $this->import_section_styles_from_xml( $xml );
+                    if ( is_wp_error( $count ) ) {
+                        $notice = '<div class="notice notice-error"><p>' . esc_html( $count->get_error_message() ) . '</p></div>';
+                    } else {
+                        $notice = '<div class="notice notice-success"><p>' . sprintf( esc_html__( '%d éléments importés avec succès.', 'up' ), intval( $count ) ) . '</p></div>';
+                    }
+                } else {
+                    $notice = '<div class="notice notice-error"><p>' . esc_html__( 'Aucun fichier sélectionné.', 'up' ) . '</p></div>';
+                }
+            } elseif ( $action === 'import_defaults' ) {
+                $count = $this->import_defaults_from_plugin();
+                if ( is_wp_error( $count ) ) {
+                    $notice = '<div class="notice notice-error"><p>' . esc_html( $count->get_error_message() ) . '</p></div>';
+                } else {
+                    $notice = '<div class="notice notice-success"><p>' . sprintf( esc_html__( '%d éléments importés depuis les modèles par défaut.', 'up' ), intval( $count ) ) . '</p></div>';
+                }
+            }
+        }
+
+        echo '<div class="wrap">';
+        echo '<h1>' . esc_html__( 'Import/Export Section Styles', 'up' ) . '</h1>';
+        echo $notice; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+
+        echo '<h2>' . esc_html__( 'Exporter', 'up' ) . '</h2>';
+        $export_url = add_query_arg( [
+            'action' => 'up_ss_export_all',
+            '_wpnonce' => wp_create_nonce( 'up_ss_export_all' ),
+        ], admin_url( 'admin-post.php' ) );
+        echo '<p><a href="' . esc_url( $export_url ) . '" class="button button-primary">' . esc_html__( 'Exporter tous les Section Styles (XML)', 'up' ) . '</a></p>';
+
+        echo '<hr/>';
+        echo '<h2>' . esc_html__( 'Importer', 'up' ) . '</h2>';
+        echo '<form method="post" enctype="multipart/form-data">';
+        wp_nonce_field( 'up_ss_xml_action', 'up_ss_xml_nonce' );
+        echo '<input type="hidden" name="up_ss_xml_action" value="import_upload" />';
+        echo '<p><input type="file" name="up_ss_xml_file" accept=".xml" /></p>';
+        echo '<p><button type="submit" class="button">' . esc_html__( 'Importer depuis un fichier XML', 'up' ) . '</button></p>';
+        echo '</form>';
+
+        echo '<form method="post" style="margin-top:16px;">';
+        wp_nonce_field( 'up_ss_xml_action', 'up_ss_xml_nonce' );
+        echo '<input type="hidden" name="up_ss_xml_action" value="import_defaults" />';
+        echo '<p><button type="submit" class="button button-secondary">' . esc_html__( 'Importer les modèles par défaut', 'up' ) . '</button></p>';
+        echo '</form>';
+
+        echo '</div>';
+    }
+
+    private function export_all_section_styles_to_xml() {
+        $posts = get_posts( [
+            'post_type'      => self::CPT,
+            'post_status'    => 'any',
+            'posts_per_page' => -1,
+        ] );
+        $xml = new DOMDocument( '1.0', 'UTF-8' );
+        $xml->formatOutput = true;
+        $root = $xml->createElement( 'section_styles' );
+        $xml->appendChild( $root );
+
+        foreach ( $posts as $p ) {
+            $item = $xml->createElement( 'item' );
+            $post = $xml->createElement( 'post' );
+            $titleEl = $xml->createElement( 'title' );
+            $titleEl->appendChild( $xml->createTextNode( (string) $p->post_title ) );
+            $post->appendChild( $titleEl );
+            $slugEl = $xml->createElement( 'slug' );
+            $slugEl->appendChild( $xml->createTextNode( (string) $p->post_name ) );
+            $post->appendChild( $slugEl );
+            $statusEl = $xml->createElement( 'status' );
+            $statusEl->appendChild( $xml->createTextNode( (string) $p->post_status ) );
+            $post->appendChild( $statusEl );
+            $contentEl = $xml->createElement( 'content' );
+            $contentEl->appendChild( $xml->createCDATASection( (string) $p->post_content ) );
+            $post->appendChild( $contentEl );
+            $item->appendChild( $post );
+
+            $metaNode = $xml->createElement( 'meta' );
+            $all_meta = get_post_meta( $p->ID );
+            foreach ( $all_meta as $k => $vals ) {
+                foreach ( (array) $vals as $v ) {
+                    $m = $xml->createElement( 'meta_key' );
+                    $m->setAttribute( 'name', $k );
+                    $m->appendChild( $xml->createTextNode( (string) $v ) );
+                    $metaNode->appendChild( $m );
+                }
+            }
+            $item->appendChild( $metaNode );
+            $root->appendChild( $item );
+        }
+        return $xml->saveXML();
+    }
+
+    public function handle_export_all() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Permissions insuffisantes.', 'up' ) );
+        }
+        check_admin_referer( 'up_ss_export_all' );
+        $xml = $this->export_all_section_styles_to_xml();
+        if ( ! $xml ) {
+            wp_die( esc_html__( 'Échec de l\'export.', 'up' ) );
+        }
+        $filename = 'section-styles-export-' . date( 'Ymd-His' ) . '.xml';
+        $this->send_download( $filename, $xml, 'application/xml; charset=utf-8' );
+    }
+
+    private function send_download( $filename, $content, $content_type = 'application/octet-stream' ) {
+        // Clear output buffers to avoid "headers already sent"
+        if ( function_exists( 'ob_get_level' ) ) {
+            while ( ob_get_level() ) { @ob_end_clean(); }
+        }
+        nocache_headers();
+        header( 'Content-Description: File Transfer' );
+        header( 'Content-Type: ' . $content_type );
+        header( 'Content-Disposition: attachment; filename=' . sanitize_file_name( $filename ) );
+        header( 'Content-Transfer-Encoding: binary' );
+        header( 'Content-Length: ' . strlen( $content ) );
+        echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        exit;
+    }
+
+    private function import_section_styles_from_xml( $xml_string ) {
+        $xml = @simplexml_load_string( $xml_string );
+        if ( ! $xml ) return new WP_Error( 'up_ss_xml_parse', __( 'XML invalide.', 'up' ) );
+        $count = 0;
+        foreach ( $xml->item as $item ) {
+            $title = (string) $item->post->title;
+            $slug  = sanitize_title( (string) $item->post->slug );
+            $status = (string) $item->post->status;
+            // Decode entities in case export used text nodes
+            $content = (string) $item->post->content;
+            if ( is_string( $content ) && strpos( $content, '<!-- wp:' ) === false ) {
+                $content = html_entity_decode( $content, ENT_QUOTES | ENT_XML1, 'UTF-8' );
+            }
+            $existing = get_page_by_path( $slug, 'OBJECT', self::CPT );
+            $postarr = [
+                'post_type'   => self::CPT,
+                'post_title'  => $title,
+                'post_name'   => $slug,
+                'post_status' => $status ?: 'publish',
+                'post_content'=> $content,
+            ];
+            if ( $existing ) { $postarr['ID'] = $existing->ID; $post_id = wp_update_post( $postarr, true ); }
+            else { $post_id = wp_insert_post( $postarr, true ); }
+            if ( is_wp_error( $post_id ) || ! $post_id ) continue;
+            // import meta
+            if ( isset( $item->meta ) ) {
+                foreach ( $item->meta->meta_key as $m ) {
+                    $k = (string) $m['name'];
+                    $v = (string) $m;
+                    update_post_meta( $post_id, $k, wp_unslash( $v ) );
+                }
+            }
+            $count++;
+        }
+        return $count;
+    }
+
+    private function import_defaults_from_plugin() {
+        $file = trailingslashit( plugin_dir_path( __FILE__ ) ) . 'default/section-styles-default.xml';
+        if ( ! file_exists( $file ) ) return new WP_Error( 'up_ss_no_defaults', __( 'Fichier par défaut introuvable.', 'up' ) );
+        $xml = file_get_contents( $file );
+        return $this->import_section_styles_from_xml( $xml );
     }
 
     private function infer_styles_for_section( $post_id ) {

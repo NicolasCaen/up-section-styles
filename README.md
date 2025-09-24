@@ -1,8 +1,14 @@
-# Up Section Styles (v1.1)
+# Up Section Styles (v1.1.1)
 
 Plugin WordPress pour créer des variations de styles réutilisables (sections et blocks). Il enregistre un custom post type `Section Styles`, permet d’inférer des styles depuis le contenu de l’éditeur, puis d’exporter en JSON dans votre thème actif ou d’écrire dans `theme.json`.
 
 Auteur: GEHIN Nicolas — Dépôt: https://github.com/NicolasCaen/up-section-styles
+
+## Nouveautés 1.1.1
+- Export XML via un handler `admin-post` dédié (téléchargement propre, sans warnings de headers).
+- Export XML écrit le contenu des posts dans des sections CDATA (pas de double-échappement).
+- Import XML décode les entités si nécessaire pour restaurer correctement les blocs Gutenberg.
+- Nouvelle page « Import/Export » dans le menu `Section Styles` (Exporter tout, Importer un fichier, Importer les modèles par défaut).
 
 ## Nouveautés 1.1
 - **Mode d’extraction “Section” enrichi**: détection étendue des attributs d’un `core/group` (couleurs, gradient, border, spacing, typography, layout, dimensions, elements h1..h6, link, button).
@@ -14,6 +20,19 @@ Auteur: GEHIN Nicolas — Dépôt: https://github.com/NicolasCaen/up-section-sty
 - **Sélecteur multi block types** avec ajout/suppression (tags) quand Cible=“Blocks multiples”.
 - **Deux modèles neutres** (insèrent/remplacent le contenu sans attributs) pour démarrer rapidement.
 - **Mode debug** amélioré: notices de démarrage, avertissements quand aucun style n’est détecté.
+
+## Import/Export XML
+
+- **Où ?** Menu `Section Styles > Import/Export`.
+- **Exporter**: bouton « Exporter tous les Section Styles (XML) » génère un fichier `section-styles-export-YYYYMMDD-HHMMSS.xml` via `admin-post.php`.
+- **Importer depuis un fichier**: sélectionnez un `.xml` exporté et validez. Les posts sont créés/mis à jour par `slug`.
+- **Importer les modèles par défaut**: importe `default/section-styles-default.xml` fourni par le plugin.
+
+Notes:
+- L’association se fait par `slug` (mise à jour si déjà présent, création sinon).
+- Toutes les metas sont incluses; si besoin, on peut filtrer à l’avenir pour ne garder que `_up_section_style_*`.
+- Les presets (`var(--wp--preset--color--...)`, spacings, fonts) doivent exister dans le thème cible pour un rendu identique.
+- Les URLs absolues présentes dans le contenu (ex: domaine local) restent telles quelles et peuvent nécessiter un remplacement.
 
 ## Cibles d’export
 - **Section** → écrit `styles/sections/<slug>.json`.
