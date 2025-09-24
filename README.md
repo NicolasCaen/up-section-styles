@@ -1,31 +1,70 @@
-# Up Section Styles
+# Up Section Styles (v1.1)
 
-WordPress plugin to create and export reusable style variations for sections and blocks. It registers a custom post type `Section Styles` and lets you infer styles from the editor content, then export them as JSON files under your active theme or merge defaults into `theme.json`.
+Plugin WordPress pour créer des variations de styles réutilisables (sections et blocks). Il enregistre un custom post type `Section Styles`, permet d’inférer des styles depuis le contenu de l’éditeur, puis d’exporter en JSON dans votre thème actif ou d’écrire dans `theme.json`.
 
-Author: GEHIN Nicolas — Repository: https://github.com/NicolasCaen/up-section-styles
+Auteur: GEHIN Nicolas — Dépôt: https://github.com/NicolasCaen/up-section-styles
 
-## Features
-- `styles/sections/`
-- `styles/blocks/`
-- `styles/blocks/<type>/`
-- Or merged directly into `theme.json` under `styles.blocks[<type>]`.
+## Nouveautés 1.1
+- **Mode d’extraction “Section” enrichi**: détection étendue des attributs d’un `core/group` (couleurs, gradient, border, spacing, typography, layout, dimensions, elements h1..h6, link, button).
+- **Export Thème (theme.json) depuis “Section”**:
+  - Les attributs du group parent sont écrits dans `styles.*` (racine de theme.json).
+  - Les attributs des sous-blocs sont écrits dans `styles.blocks[<type>]` (sans `elements` au niveau block).
+  - Jamais de `styles.blocks["core/group"]` en mode “Section”.
+- **Sélecteurs UI clarifiés**: le champ “Block spécifique” est masqué quand Cible=Thème + Extraction=Section.
+- **Sélecteur multi block types** avec ajout/suppression (tags) quand Cible=“Blocks multiples”.
+- **Deux modèles neutres** (insèrent/remplacent le contenu sans attributs) pour démarrer rapidement.
+- **Mode debug** amélioré: notices de démarrage, avertissements quand aucun style n’est détecté.
 
-## Metabox Fields
+## Cibles d’export
+- **Section** → écrit `styles/sections/<slug>.json`.
+- **Block spécifique** → écrit `styles/blocks/<type>/<slug>.json`.
+- **Blocks multiples** → écrit `styles/blocks/<slug>.json` avec plusieurs `blockTypes`.
+- **Thème (theme.json)** → fusionne les styles dans `theme.json`.
 
-- **Exporter en fichier du thème**
-  - When checked, saving a `Section Style` will export a JSON file into your theme (unless export target is `theme.json`).
+## Modes d’extraction
+- **Section**
+  - Infère les styles depuis le group parent (racine) et ses éléments (h1..h6, link, button).
+  - À l’export Thème: écrit les styles racine dans `styles.*` et les styles des sous-blocs dans `styles.blocks[<type>]`.
+- **Block**
+  - Infère les attributs du type de block choisi (ou de plusieurs types) et les fusionne.
 
-- **Cible d'export**
-  - `Styles de section (styles/sections)` → writes to `styles/sections/`
-  - `Styles pour blocks (styles/blocks)` → writes to `styles/blocks/`
-  - `Style spécifique à un type de block (styles/blocks/<type>)` → writes to `styles/blocks/<type>/`
-  - `Écrire dans theme.json (défaut du type de block)` → merges styles into `theme.json` at `styles.blocks[<type>]`
+## Utilisation
+1. Créez/éditez un “Section Style”.
+2. Construisez le contenu dans l’éditeur blocs (Group, titres, texte, boutons…).
+3. Dans le metabox:
+   - Cochez “Exporter en fichier du thème”.
+   - Choisissez la **Cible d’export** (Section, Block spécifique, Blocks multiples, Thème).
+   - Sélectionnez le **Mode d’extraction** (Section ou Block).
+   - Selon la cible: choisissez un type de block (single) ou ajoutez plusieurs types (multiple).
+   - Optionnel: activez **Mode debug**.
+4. Enregistrez. Les fichiers sont écrits dans `wp-content/themes/<votre-thème>/styles/…` ou fusionnés dans `theme.json`.
 
-- **Mode type de block**
-  - `Multiple (liste de blockTypes)` → uses a comma-separated list in the next field
-  - `Un seul type de block` → show a dedicated input for a single block name (e.g., `core/paragraph`)
+## Modèles neutres (UI du metabox)
+- “Insérer un modèle neutre (Titre + Paragraphe + Bouton)”
+- “Insérer modèle (H1–H4 + Texte + Bouton)”
+Ces modèles n’ajoutent aucun attribut. Ils servent de base pour définir ensuite les styles au niveau du Group et des sous-blocs.
 
-- **Type de block (single)**
+## Détails d’inférence (extraits)
+- Couleurs: background, text, gradient (normalisation presets → CSS vars).
+- Border: width, radius, color, style (solid par défaut si width sans style).
+- Espacements: padding, margin, blockGap.
+- Typographie: fontSize (preset→var), letterSpacing, lineHeight, textDecoration, writingMode, fontStyle, fontWeight, textTransform, textAlign.
+- Layout: justifyContent, alignItems, flexWrap.
+- Dimensions: minHeight, aspectRatio.
+- Elements: link (color + textDecoration none), button (text/background), h1..h6 (color), heading (color depuis le premier core/heading interne).
+
+## Debug et validation
+- “Mode debug” affiche des notices (démarrage, avertissements/succès).
+- Les types de block sont validés via `WP_Block_Type_Registry`.
+- Les presets (couleurs, espacements, font-size) sont normalisés en variables CSS.
+
+## Changelog
+- 1.1.0
+  - Export Thème depuis “Section”: styles racine + styles des sous-blocs, sans `elements` au niveau block.
+  - Masquage du champ “Block spécifique” quand Thème + Section.
+  - Sélecteur multi block types (UI tags), debug renforcé, inférence Section étendue.
+- 1.0.0
+  - Première version stable: export Sections/Blocks/Block spécifique, écriture dans theme.json pour un type de block.
   - Required when `Mode type de block = Un seul type de block`
 
 - **BlockTypes (multiple)**
