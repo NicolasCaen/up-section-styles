@@ -197,6 +197,30 @@ class Up_Section_Styles_Plugin_Restore {
 
         echo '<hr/>';
         echo '<p><label><input type="checkbox" name="up_ss_debug" value="1" ' . checked( $debug, true, false ) . ' /> ' . esc_html__( 'Mode debug (affiche des détails lors de l\'export)', 'up' ) . '</label></p>';
+
+        // Insert neutral section template button
+        echo '<hr/>';
+        echo '<p><button type="button" class="button button-secondary" id="up-ss-insert-skeleton">' . esc_html__( 'Insérer un modèle neutre (Titre + Paragraphe + Bouton)', 'up' ) . '</button></p>';
+        echo '<p class="description">' . esc_html__( 'Ajoute dans le contenu: un titre, un paragraphe avec un lien et un bouton.', 'up' ) . '</p>';
+        echo '<script>document.addEventListener("DOMContentLoaded",function(){
+            var btn=document.getElementById("up-ss-insert-skeleton"); if(!btn) return;
+            btn.addEventListener("click", function(e){ e.preventDefault();
+                if(!(window.wp && wp.blocks && wp.data && wp.data.dispatch)) { alert("Éditeur non disponible."); return; }
+                try {
+                    var heading = wp.blocks.createBlock("core/heading", { level: 2, content: "Titre de section" });
+                    var paraHtml = "Un paragraphe avec un <a href=\\"/page-d-exemple/\\">lien</a>.";
+                    var paragraph = wp.blocks.createBlock("core/paragraph", { content: paraHtml });
+                    var button = wp.blocks.createBlock("core/button", { text: "En savoir plus", url: "#" });
+                    var buttons = wp.blocks.createBlock("core/buttons", {}, [ button ]);
+                    var group = wp.blocks.createBlock("core/group", {}, [ heading, paragraph, buttons ]);
+                    // Replace the entire content with the group template
+                    wp.data.dispatch("core/editor").resetBlocks([ group ]);
+                } catch(err) {
+                    console.error(err);
+                    alert("Impossible d\'insérer le modèle.");
+                }
+            });
+        });</script>';
     }
 
     public function save_meta_box( $post_id, $post, $update ) {
@@ -263,14 +287,13 @@ class Up_Section_Styles_Plugin_Restore {
             if ( $extract_mode === 'block' ) {
                 $decoded = [ 'styles' => $this->infer_styles_for_single_block( $post_id, $target_block ) ];
             } else {
-                // section extraction for single block target: use section-level inference (not implemented -> placeholder)
-                $decoded = [ 'styles' => [] ];
+                // Section extraction: use section-level inference
+                $decoded = [ 'styles' => $this->infer_styles_for_section( $post_id ) ];
             }
         } else {
             // multiple blocks target
             if ( $extract_mode === 'section' ) {
-                // TODO: implement section-level inference across inner blocks
-                $decoded = [ 'styles' => [] ];
+                $decoded = [ 'styles' => $this->infer_styles_for_section( $post_id ) ];
             } else {
                 // Extract attributes from each selected block type, merge styles (first value wins)
                 $merged = [];
@@ -588,6 +611,120 @@ class Up_Section_Styles_Plugin_Restore {
             }
         }
         return $a;
+    }
+
+    private function infer_styles_for_section( $post_id ) {
+        $content = get_post_field( 'post_content', $post_id );
+        $blocks = function_exists( 'parse_blocks' ) ? parse_blocks( $content ) : [];
+        if ( empty( $blocks ) ) return [];
+        $root = $blocks[0];
+        if ( ! is_array( $root ) || ! isset( $root['blockName'] ) ) return [];
+        // Try to find top-level group; if first block is not a group, look for first group
+        if ( $root['blockName'] !== 'core/group' ) {
+            foreach ( $blocks as $b ) { if ( isset( $b['blockName'] ) && $b['blockName'] === 'core/group' ) { $root = $b; break; } }
+        }
+        $styles = [];
+        $attrs = isset( $root['attrs'] ) ? $root['attrs'] : [];
+        // Background/text/gradient from style or preset fields
+        $bg = null; $tx = null; $gradient = null;
+        if ( isset( $attrs['style']['color']['background'] ) ) { $bg = $this->normalize_color_value( $attrs['style']['color']['background'] ); }
+        if ( ! $bg && isset( $attrs['backgroundColor'] ) ) { $bg = 'var(--wp--preset--color--' . sanitize_title( $attrs['backgroundColor'] ) . ')'; }
+        if ( isset( $attrs['style']['color']['text'] ) ) { $tx = $this->normalize_color_value( $attrs['style']['color']['text'] ); }
+        if ( ! $tx && isset( $attrs['textColor'] ) ) { $tx = 'var(--wp--preset--color--' . sanitize_title( $attrs['textColor'] ) . ')'; }
+        if ( isset( $attrs['style']['color']['gradient'] ) ) { $gradient = $attrs['style']['color']['gradient']; }
+        elseif ( isset( $attrs['gradient'] ) ) { $gslug = sanitize_title( $attrs['gradient'] ); $gradient = 'var(--wp--preset--gradient--' . $gslug . ')'; }
+        if ( $bg || $tx || $gradient ) {
+            $styles['color'] = [];
+            if ( $bg ) $styles['color']['background'] = $bg;
+            if ( $tx ) $styles['color']['text'] = $tx;
+            if ( $gradient ) $styles['color']['gradient'] = $gradient;
+        }
+        // Elements from group style
+        if ( isset( $attrs['style']['elements'] ) && is_array( $attrs['style']['elements'] ) ) {
+            $els = $attrs['style']['elements'];
+            // link color
+            if ( isset( $els['link']['color']['text'] ) ) {
+                $styles['elements']['link']['color']['text'] = $this->normalize_color_value( $els['link']['color']['text'] );
+                $styles['elements']['link']['typography']['textDecoration'] = 'none';
+            }
+            // button colors
+            if ( isset( $els['button']['color'] ) && is_array( $els['button']['color'] ) ) {
+                if ( isset( $els['button']['color']['text'] ) ) {
+                    $styles['elements']['button']['color']['text'] = $this->normalize_color_value( $els['button']['color']['text'] );
+                }
+                if ( isset( $els['button']['color']['background'] ) ) {
+                    $styles['elements']['button']['color']['background'] = $this->normalize_color_value( $els['button']['color']['background'] );
+                }
+            }
+            // h2 color
+            if ( isset( $els['h2']['color']['text'] ) ) {
+                $styles['elements']['h2']['color']['text'] = $this->normalize_color_value( $els['h2']['color']['text'] );
+            }
+        }
+        // Border (style/color/width/radius)
+        if ( isset( $attrs['style']['border'] ) && is_array( $attrs['style']['border'] ) ) {
+            $b = $attrs['style']['border'];
+            $out = [];
+            if ( isset( $b['width'] ) ) $out['width'] = $b['width'];
+            if ( isset( $b['radius'] ) ) $out['radius'] = $b['radius'];
+            if ( isset( $b['color'] ) ) { $c = $this->normalize_color_value( $b['color'] ); if ( $c ) { $out['color'] = $c; } }
+            if ( isset( $b['style'] ) && $b['style'] !== '' ) { $out['style'] = $b['style']; }
+            elseif ( isset( $b['width'] ) && $b['width'] !== '' ) { $out['style'] = 'solid'; }
+            if ( ! empty( $out ) ) $styles['border'] = $out;
+        }
+        // Spacing padding/margin/blockGap
+        if ( isset( $attrs['style']['spacing']['padding'] ) && is_array( $attrs['style']['spacing']['padding'] ) ) {
+            $pad = $attrs['style']['spacing']['padding'];
+            foreach ( [ 'top', 'right', 'bottom', 'left' ] as $side ) {
+                if ( isset( $pad[ $side ] ) ) { $styles['spacing']['padding'][ $side ] = $this->normalize_spacing_value( $pad[ $side ] ); }
+            }
+        }
+        if ( isset( $attrs['style']['spacing']['margin'] ) && is_array( $attrs['style']['spacing']['margin'] ) ) {
+            $mar = $attrs['style']['spacing']['margin'];
+            foreach ( [ 'top', 'right', 'bottom', 'left' ] as $side ) {
+                if ( isset( $mar[ $side ] ) ) { $styles['spacing']['margin'][ $side ] = $this->normalize_spacing_value( $mar[ $side ] ); }
+            }
+        }
+        if ( isset( $attrs['style']['spacing']['blockGap'] ) && $attrs['style']['spacing']['blockGap'] !== '' ) {
+            $styles['spacing']['blockGap'] = $this->normalize_spacing_value( $attrs['style']['spacing']['blockGap'] );
+        }
+        // Typography on group
+        if ( isset( $attrs['style']['typography'] ) && is_array( $attrs['style']['typography'] ) ) {
+            $t = $attrs['style']['typography'];
+            $map_keys = [ 'letterSpacing', 'lineHeight', 'textDecoration', 'writingMode', 'fontStyle', 'fontWeight', 'textTransform', 'textAlign' ];
+            foreach ( $map_keys as $k ) { if ( isset( $t[ $k ] ) && $t[ $k ] !== '' ) { $styles['typography'][ $k ] = $t[ $k ]; } }
+            if ( isset( $t['fontSize'] ) && $t['fontSize'] !== '' ) { $styles['typography']['fontSize'] = $t['fontSize']; }
+        }
+        // Layout (top-level attrs.layout)
+        if ( isset( $attrs['layout'] ) && is_array( $attrs['layout'] ) ) {
+            foreach ( [ 'justifyContent', 'alignItems', 'flexWrap' ] as $k ) { if ( isset( $attrs['layout'][ $k ] ) && $attrs['layout'][ $k ] !== '' ) { $styles['layout'][ $k ] = $attrs['layout'][ $k ]; } }
+        }
+        // Dimensions
+        if ( isset( $attrs['style']['dimensions'] ) && is_array( $attrs['style']['dimensions'] ) ) {
+            $d = $attrs['style']['dimensions'];
+            if ( isset( $d['minHeight'] ) && $d['minHeight'] !== '' ) { $styles['dimensions']['minHeight'] = $d['minHeight']; }
+            if ( isset( $d['aspectRatio'] ) && $d['aspectRatio'] !== '' ) { $styles['dimensions']['aspectRatio'] = $d['aspectRatio']; }
+        }
+        // Also look for first inner heading to set generic heading color
+        $found_heading = null;
+        $walker = function( $nodes ) use ( &$walker, &$found_heading ) {
+            foreach ( $nodes as $b ) {
+                if ( ! is_array( $b ) ) continue;
+                if ( isset( $b['blockName'] ) && $b['blockName'] === 'core/heading' ) { $found_heading = $b; return; }
+                if ( ! empty( $b['innerBlocks'] ) ) $walker( $b['innerBlocks'] );
+                if ( $found_heading ) return;
+            }
+        };
+        $inner = isset( $root['innerBlocks'] ) ? $root['innerBlocks'] : [];
+        $walker( $inner );
+        if ( $found_heading ) {
+            $ha = isset( $found_heading['attrs'] ) ? $found_heading['attrs'] : [];
+            $hcol = null;
+            if ( isset( $ha['style']['color']['text'] ) ) { $hcol = $this->normalize_color_value( $ha['style']['color']['text'] ); }
+            if ( ! $hcol && isset( $ha['textColor'] ) ) { $hcol = 'var(--wp--preset--color--' . sanitize_title( $ha['textColor'] ) . ')'; }
+            if ( $hcol ) { $styles['elements']['heading']['color']['text'] = $hcol; }
+        }
+        return $styles;
     }
 }
 
